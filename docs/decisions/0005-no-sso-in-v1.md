@@ -1,6 +1,10 @@
 # ADR 0005: No Cloudron SSO in v1; OpenBao's native auth is the front door
 
-Status: accepted (2026-07-29)
+Status: amended by ADR 0006 (2026-07-29): the revisit plan below was carried
+out the same day against a live gate instance, so v1 does ship Cloudron SSO,
+wired exactly as this ADR's revisit section prescribed (verified callback,
+default role with no secret access). The reasoning against `proxyAuth` and
+against unverified SSO stands unchanged.
 
 ## Context
 

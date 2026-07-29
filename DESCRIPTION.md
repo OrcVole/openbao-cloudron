@@ -19,6 +19,9 @@ This package is built for unattended operation on Cloudron:
   Restores and clones rebuild the store from the newest snapshot automatically.
 * **Honest health reporting.** A sealed instance reports unhealthy to Cloudron
   instead of pretending all is well.
+* **Cloudron sign-on and app integration.** Cloudron accounts can log in to
+  the UI via OIDC (with no access to secrets until granted), and other apps
+  consume the Vault-compatible API with AppRole credentials.
 
 The convenience of auto-unseal has a stated cost: the unseal key lives on the
 same server as the data it protects. Read the post-install notes for the threat

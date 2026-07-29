@@ -15,6 +15,9 @@
     "httpPort": 8200,
     "addons": {
         "localstorage": {},
+        "oidc": {
+            "loginRedirectUri": "/ui/vault/auth/oidc/oidc/callback"
+        },
         "scheduler": {
             "snapshot": {
                 "schedule": "17 * * * *",
@@ -22,6 +25,7 @@
             }
         }
     },
+    "optionalSso": true,
     "persistentDirs": [
         "/app/openbao"
     ],

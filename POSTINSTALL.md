@@ -41,6 +41,13 @@ alternative is manually unsealing after every restart and update. If you
 prefer that, the README documents the Shamir mode and the migration procedure
 in both directions.
 
+#### Cloudron sign-in (reference)
+
+<sso>Cloudron users can sign in from the UI's **OIDC** option. They get no
+access to any secret until you grant policies (Access, then Authentication
+methods, or see the package's INTEGRATIONS documentation). Other apps should
+use AppRole credentials, never the root token.</sso>
+
 #### Useful facts (reference, not setup)
 
 * CLI from your own machine: `export BAO_ADDR=https://$CLOUDRON-APP-FQDN` then

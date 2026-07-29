@@ -59,6 +59,11 @@ on the server (this is host-level configuration, outside the app's control).
 * UI: `https://your.domain/ui/`. First login: method **Token**, using
   `/app/data/.secrets/root-token`. Create a proper admin auth method
   (`userpass`, `oidc`, `ldap`) and keep the root token for emergencies.
+* **Cloudron single sign-on**: when installed with Cloudron user management,
+  Cloudron accounts can sign in from the login screen's OIDC option. They
+  arrive with the `default` policy and can read nothing until you grant
+  policies; see `docs/INTEGRATIONS.md` for granting access and for wiring
+  other applications to OpenBao (AppRole recipes).
 * CLI from your machine: install the `bao` CLI, then
   `export BAO_ADDR=https://your.domain` and `bao login`.
 * API: Vault-compatible, `https://your.domain/v1/...`. Existing Vault client

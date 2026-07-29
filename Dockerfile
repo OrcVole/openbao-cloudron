@@ -48,7 +48,7 @@ RUN /app/code/bao version
 # Convenience for cloudron exec shells: the CLI finds the local server.
 RUN printf 'export BAO_ADDR=http://127.0.0.1:8200\n' > /etc/profile.d/openbao.sh
 
-COPY start.sh snapshot.sh /app/code/
-RUN chmod 0755 /app/code/start.sh /app/code/snapshot.sh
+COPY start.sh snapshot.sh configure-oidc.sh /app/code/
+RUN chmod 0755 /app/code/start.sh /app/code/snapshot.sh /app/code/configure-oidc.sh
 
 CMD [ "/app/code/start.sh" ]

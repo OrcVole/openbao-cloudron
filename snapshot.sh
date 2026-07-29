@@ -30,10 +30,14 @@ log() { echo "==> [snapshot] $*"; }
 # (start.sh calls first-boot mode against the private scratch listener).
 export BAO_ADDR="${BAO_ADDR:-http://127.0.0.1:8200}"
 if [[ "${MODE}" == "pre-backup" ]]; then
-    # Temporary container: no server on localhost. The public origin may or may
-    # not be reachable from here; if it is not, the newest hourly snapshot
-    # already in /app/data rides the backup instead.
-    export BAO_ADDR="${CLOUDRON_APP_ORIGIN:-http://127.0.0.1:8200}"
+    # Temporary container (docker run on the app image, cloudron network, NO
+    # CLOUDRON_* env, stdout discarded): the live server is not on localhost.
+    # start.sh writes the app container's internal address into /app/data at
+    # each boot precisely for this moment. If unreachable, the newest hourly
+    # snapshot already in /app/data rides the backup instead.
+    if [[ -s "${DATA}/.snapshot-endpoint" ]]; then
+        export BAO_ADDR="$(cat "${DATA}/.snapshot-endpoint")"
+    fi
 fi
 
 if [[ ! -f "${TOKEN_FILE}" ]]; then
