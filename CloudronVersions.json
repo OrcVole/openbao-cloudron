@@ -1,0 +1,66 @@
+{
+    "stable": true,
+    "versions": {
+        "1.0.0": {
+            "manifest": {
+                "id": "io.github.orcvole.openbao",
+                "title": "OpenBao",
+                "author": "OrcVole",
+                "tagline": "Open source secrets management that survives restarts",
+                "description": "OpenBao is an open source identity-based secrets and encryption management\nsystem, a community-driven fork of HashiCorp Vault stewarded by the Linux\nFoundation under the OpenSSF. It provides a central, audited place to store,\ngenerate and control access to secrets: API keys, passwords, certificates and\nencryption keys, with a web UI, a CLI and a Vault-compatible HTTP API.\n\nThis package is built for unattended operation on Cloudron:\n\n* **Auto-unseal by default.** The package configures OpenBao's built-in static\n  key seal, so the instance comes back serving secrets after every restart and\n  automatic update with no human intervention. (Self-hosted Vault and OpenBao\n  installations normally require an operator to paste unseal key shares after\n  every restart.)\n* **Initialised out of the box.** On first start the package initialises\n  OpenBao, enables the KV v2 secrets engine and a file audit device, and leaves\n  the root token and recovery keys for you in `/app/data/.secrets`.\n* **Consistent backups.** Integrated raft storage is snapshotted hourly with\n  OpenBao's own snapshot mechanism, and the snapshots ride Cloudron backups.\n  Restores and clones rebuild the store from the newest snapshot automatically.\n* **Honest health reporting.** A sealed instance reports unhealthy to Cloudron\n  instead of pretending all is well.\n* **Cloudron sign-on and app integration.** Cloudron accounts can log in to\n  the UI via OIDC (with no access to secrets until granted), and other apps\n  consume the Vault-compatible API with AppRole credentials.\n\nThe convenience of auto-unseal has a stated cost: the unseal key lives on the\nsame server as the data it protects. Read the post-install notes for the threat\nmodel and the hardening steps (off-server copies of the recovery material and\nencrypted Cloudron backups). A manual-unseal (Shamir) mode is available for\noperators who prefer it.\n\nThis is an unofficial community package. It is not affiliated with or endorsed\nby the OpenBao project, the Linux Foundation, or Cloudron. OpenBao is\ndistributed unmodified under the Mozilla Public License 2.0; source code is at\nhttps://github.com/openbao/openbao.\n",
+                "changelog": "[1.0.0]\n* Initial release\n* OpenBao 2.6.1, integrated raft storage, web UI enabled\n* Auto-unseal by default via the built-in static key seal; Shamir mode available as an opt-in\n* Zero-touch first start: automatic initialisation, KV v2 mounted at secret/, file audit device enabled\n* Hourly raft snapshots into /app/data/snapshots ride Cloudron backups, plus a fresh snapshot at backup time; automatic restore from the newest snapshot on restore or clone\n* Health check reports a sealed instance as unhealthy\n* Cloudron single sign-on for the UI (optional): Cloudron accounts log in via OIDC with no secret access until granted; AppRole integration recipes for other apps\n",
+                "icon": "file://logo.png",
+                "website": "https://openbao.org",
+                "documentationUrl": "https://openbao.org/docs/",
+                "contactEmail": "OrcVole@users.noreply.github.com",
+                "version": "1.0.0",
+                "upstreamVersion": "2.6.1",
+                "healthCheckPath": "/v1/sys/health?standbyok=true&uninitcode=200&sealedcode=503",
+                "httpPort": 8200,
+                "addons": {
+                    "localstorage": {},
+                    "oidc": {
+                        "loginRedirectUri": "/ui/vault/auth/oidc/oidc/callback"
+                    },
+                    "scheduler": {
+                        "snapshot": {
+                            "schedule": "17 * * * *",
+                            "command": "/app/code/snapshot.sh"
+                        }
+                    }
+                },
+                "optionalSso": true,
+                "persistentDirs": [
+                    "/app/openbao"
+                ],
+                "backupCommand": "/app/code/snapshot.sh pre-backup",
+                "memoryLimit": 1073741824,
+                "configurePath": "/ui/",
+                "postInstallMessage": "**OpenBao is running, initialised and unsealed.** No setup steps are required\nbefore you can use it.\n\n#### First things first\n\n1. Open the File Manager (or Web Terminal) and copy everything in\n   `/app/data/.secrets` to a safe place **outside this server**: `root-token`\n   (log in with this), `init.json` (recovery key shares), and `unseal.key`\n   (the auto-unseal key). If this server is lost, these are what make your\n   backups readable.\n2. Log in to the web UI with the root token (method **Token**), then create\n   your own admin sign-in under Access, for example **userpass**, and use that\n   day to day instead of the root token.\n3. In Cloudron, enable backup encryption (Settings, then Backups) if you have\n   not already. App backups contain the auto-unseal key next to the data it\n   decrypts; encrypting backups closes that gap at rest.\n\n#### How this package keeps your data safe\n\nA raft snapshot is taken every hour (and before each backup when possible)\ninto `/app/data/snapshots`, and that is what Cloudron backs up. After a\nrestore or clone, the app rebuilds itself from the newest snapshot\nautomatically. Changes made after the last snapshot are not in the backup;\ntake a manual snapshot before risky changes, in this app's Web Terminal:\n\n```\nbao operator raft snapshot save /app/data/snapshots/raft-manual.snap\n```\n\n(Requires a token; `export BAO_TOKEN=$(cat /app/data/.secrets/root-token)`.)\n\n#### The auto-unseal trade-off, stated plainly\n\nThe unseal key lives at `/app/data/.secrets/unseal.key`, on the same server as\nthe data. This protects a stolen disk or backup only if the backup itself is\nencrypted, and it does not protect against anyone with root on this server or\nadmin on this Cloudron. OpenBao's own documentation recommends a static seal\n\"when an existing source of trust already exists in the operating\nenvironment\"; on Cloudron, that source of trust is the server itself, and the\nalternative is manually unsealing after every restart and update. If you\nprefer that, the README documents the Shamir mode and the migration procedure\nin both directions.\n\n#### Cloudron sign-in (reference)\n\n<sso>Cloudron users can sign in from the UI's **OIDC** option. They get no\naccess to any secret until you grant policies (Access, then Authentication\nmethods, or see the package's INTEGRATIONS documentation). Other apps should\nuse AppRole credentials, never the root token.</sso>\n\n#### Useful facts (reference, not setup)\n\n* CLI from your own machine: `export BAO_ADDR=https://$CLOUDRON-APP-FQDN` then\n  `bao login` (the `bao` CLI is a single binary from openbao.org; the `vault`\n  CLI also works against it).\n* The API is Vault-compatible at `https://$CLOUDRON-APP-FQDN/v1/...`.\n* Audit log: `/app/data/audit/audit.log` (rotated automatically at 64 MB).\n* A KV v2 secrets engine is mounted at `secret/`.\n* Operator configuration lives in `/app/data/config/main.hcl`; the seal and\n  listener are package-managed in `zz-managed.hcl` and regenerate on restart.\n",
+                "checklist": {
+                    "save-credentials": {
+                        "message": "Copy the contents of /app/data/.secrets (root token, recovery keys, unseal key) to a safe place outside this server, using the File Manager or Web Terminal."
+                    },
+                    "backup-encryption": {
+                        "message": "Enable backup encryption (Settings, then Backups) so the auto-unseal key inside app backups is protected at rest."
+                    },
+                    "create-admin": {
+                        "message": "Log in to the UI with the root token and create your own admin auth method (for example userpass), then avoid using the root token day to day."
+                    }
+                },
+                "manifestVersion": 2,
+                "minBoxVersion": "9.1.0",
+                "packagerName": "OrcVole",
+                "packagerUrl": "https://github.com/OrcVole/openbao-cloudron",
+                "iconUrl": "https://raw.githubusercontent.com/OrcVole/openbao-cloudron/main/logo.png",
+                "mediaLinks": [
+                    "https://raw.githubusercontent.com/OrcVole/openbao-cloudron/main/screenshots/ui-overview.png"
+                ],
+                "dockerImage": "ghcr.io/orcvole/openbao-cloudron@sha256:1625b72e1bfbd98db5df79b8bda0ae8c66479e80ff0eb23e14bdc23e4be60b7a"
+            },
+            "creationDate": "2026-07-29T11:12:30.387Z",
+            "ts": 1785323550387,
+            "publishState": "published"
+        }
+    }
+}
