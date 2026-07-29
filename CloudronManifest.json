@@ -1,0 +1,51 @@
+{
+    "id": "io.github.orcvole.openbao",
+    "title": "OpenBao",
+    "author": "OrcVole",
+    "tagline": "Open source secrets management that survives restarts",
+    "description": "file://DESCRIPTION.md",
+    "changelog": "file://CHANGELOG.md",
+    "icon": "file://logo.png",
+    "website": "https://openbao.org",
+    "documentationUrl": "https://openbao.org/docs/",
+    "contactEmail": "OrcVole@users.noreply.github.com",
+    "version": "1.0.0",
+    "upstreamVersion": "2.6.1",
+    "healthCheckPath": "/v1/sys/health?standbyok=true&uninitcode=200&sealedcode=503",
+    "httpPort": 8200,
+    "addons": {
+        "localstorage": {},
+        "scheduler": {
+            "snapshot": {
+                "schedule": "17 * * * *",
+                "command": "/app/code/snapshot.sh"
+            }
+        }
+    },
+    "persistentDirs": [
+        "/app/openbao"
+    ],
+    "backupCommand": "/app/code/snapshot.sh pre-backup",
+    "memoryLimit": 1073741824,
+    "configurePath": "/ui/",
+    "postInstallMessage": "file://POSTINSTALL.md",
+    "checklist": {
+        "save-credentials": {
+            "message": "Copy the contents of /app/data/.secrets (root token, recovery keys, unseal key) to a safe place outside this server, using the File Manager or Web Terminal."
+        },
+        "backup-encryption": {
+            "message": "Enable backup encryption (Settings, then Backups) so the auto-unseal key inside app backups is protected at rest."
+        },
+        "create-admin": {
+            "message": "Log in to the UI with the root token and create your own admin auth method (for example userpass), then avoid using the root token day to day."
+        }
+    },
+    "manifestVersion": 2,
+    "minBoxVersion": "9.1.0",
+    "packagerName": "OrcVole",
+    "packagerUrl": "https://github.com/OrcVole/openbao-cloudron",
+    "iconUrl": "https://raw.githubusercontent.com/OrcVole/openbao-cloudron/main/logo.png",
+    "mediaLinks": [
+        "https://raw.githubusercontent.com/OrcVole/openbao-cloudron/main/screenshots/ui-overview.png"
+    ]
+}

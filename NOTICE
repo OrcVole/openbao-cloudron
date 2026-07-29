@@ -1,0 +1,21 @@
+This container image redistributes an unmodified OpenBao release binary.
+
+OpenBao is licensed under the Mozilla Public License, version 2.0 (MPL-2.0).
+A copy of the licence is included in this image at /app/code/LICENSE-openbao
+and in this repository as LICENSE.
+
+Source code for OpenBao is available at no charge from:
+  https://github.com/openbao/openbao
+This package ships the release artefact of tag v2.6.1 (see the Dockerfile for
+the exact version and checksum currently built).
+
+The packaging files in this repository (Dockerfile, start.sh, snapshot.sh,
+CloudronManifest.json and documentation) are also provided under MPL-2.0.
+
+OpenBao is a Linux Foundation project. This is an unofficial community
+package: it is not affiliated with or endorsed by the OpenBao project, the
+Linux Foundation, or Cloudron. Product names and logos are used nominatively
+to identify the packaged software.
+
+The app icon (logo.png) is the OpenBao logomark, (c) OpenBao authors,
+licensed CC-BY-4.0, obtained from https://github.com/openbao/artwork.
