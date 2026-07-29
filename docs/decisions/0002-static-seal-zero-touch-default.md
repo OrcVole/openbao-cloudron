@@ -41,8 +41,10 @@ operator caused deliberately.
   swap (`unseal.key.prev` becomes `previous_key`).
 * First boot initialises OpenBao automatically: `operator init` (5 recovery
   shares, threshold 3), root token and full init output stored in
-  `/app/data/.secrets`, KV v2 mounted at `secret/`, a file audit device
-  enabled, and a minimal-policy periodic token created for the snapshot job.
+  `/app/data/.secrets`, KV v2 mounted at `secret/`, and a minimal-policy
+  periodic token created for the snapshot job. The file audit device is
+  declared declaratively in the generated `main.hcl` because OpenBao
+  disables audit device creation via the API (since v2.3.2).
   The post-install checklist directs the operator to copy the recovery
   material off the server and enable backup encryption.
 * Package-driven init was chosen over OpenBao's declarative `initialize`

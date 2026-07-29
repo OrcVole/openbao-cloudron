@@ -4,6 +4,47 @@ Public log of what was confirmed empirically versus carried by assumption,
 newest first. Techniques only; no host specifics. See `docs/DEBUGGING.md` for
 gate evidence tables.
 
+## 2026-07-29 local smoke round (podman, Cloudron-style run)
+
+**Verified against the running image (OpenBao 2.6.1):**
+
+* Raft on-disk layout under the configured `path`: `vault.db` (the name is
+  inherited), `raft/raft.db`, and `raft/snapshots/` (the internal
+  create-rename-reap churn directory that justifies keeping the store out of
+  the live backup walk). Boot-path detection must test `raft/raft.db`, not
+  `<path>/raft.db`.
+* `bao operator init` against raft storage takes about 9 to 10 seconds.
+  Anything driving `PUT /v1/sys/init` needs a timeout comfortably above
+  that; a 10 second client timeout times out at exactly the wrong moment,
+  and the barrier still initialises server side, which would strand a real
+  operator with keys they never received.
+* Single-node raft init logs a scary-looking but apparently cosmetic
+  `[ERROR] core: failed to unlock initialization lock: error="cannot find
+  peer"`, and scratch auto-seal inits log `[WARN] core: post-unseal upgrade
+  seal keys failed: error="no recovery key found"`. Both accompany fully
+  functional outcomes; noted as a question to put to upstream.
+* **Audit devices cannot be created via the API** (HTTP 400 `cannot enable
+  audit device via API; use declarative, config-based audit device
+  management instead`; disabled upstream since v2.3.2). The declarative
+  stanza works: `audit "file" "default" { options { file_path = "..." } }`,
+  applied at restart and SIGHUP.
+* The CLI subcommand is `bao token renew` (self-renew when no argument);
+  there is no `renew-self` subcommand.
+* The init API response carries `keys` (hex) and `keys_base64`; there is no
+  `keys_b64` field.
+* Static seal, key as a raw 32-byte `file://`: generation with
+  `openssl rand -out key 32` accepted; auto-unseal proven across container
+  restarts, across a snapshot restore into a fresh store, and across a key
+  rotation using the `previous_key` stanza with content-derived key ids.
+* The whole zero-touch cycle proven end to end locally: first boot
+  initialises on a private listener, credentials land 0600, hourly-style
+  snapshot job produces artefacts, a fresh store next to snapshots rebuilds
+  itself and the stored root token remains valid, and the canary KV secret
+  survives every one of restart, restore and rotation byte-identically.
+* Test-harness note for other packagers: rootless podman's journald log
+  driver flushes lazily, so `podman logs | grep` assertions race the boot
+  they are checking; retry the grep or assert on behaviour instead.
+
 ## 2026-07-29 design round
 
 **Verified (against the Cloudron 9.2 platform source):**

@@ -55,8 +55,9 @@ fi
 BAO_TOKEN="$(cat "${TOKEN_FILE}")"
 export BAO_TOKEN
 
-# Keep the periodic token alive; harmless if it fails this round.
-bao token renew-self > /dev/null 2>&1 || log "token renew-self failed (will still try the snapshot)"
+# Keep the periodic token alive; harmless if it fails this round. JSON output
+# to the bit bucket so the token value never reaches the logs.
+bao token renew -format=json > /dev/null 2>&1 || log "token renew failed (will still try the snapshot)"
 
 STAMP="$(date -u +%Y%m%d-%H%M%S)"
 TMP="${SNAP_DIR}/.tmp-${STAMP}.snap"

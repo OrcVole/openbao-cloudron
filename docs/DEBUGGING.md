@@ -6,18 +6,26 @@ Filled in as each gate runs; every claim carries its proof (status codes,
 SHA-256 prefixes, counts). Empty cells mean "not yet run", never "assumed
 fine".
 
-### Local smoke (podman)
+### Local smoke (podman) — PASS 2026-07-29, 27/27 assertions
+
+Run: `test/smoke.sh` against the assembled image, Cloudron-style (read-only
+rootfs, tmpfs /run and /tmp, volumes for /app/data and /app/openbao).
 
 | Invariant | Proof |
 |---|---|
-| auto-init to active | |
-| health matrix uninit/sealed/active, bare and manifest params | |
-| restart auto-unseal + KV read-back | |
-| snapshot save via job | |
-| restore into fresh store + root token valid + KV read-back | |
-| key rotation restart | |
-| secrets 0600 cloudron; absent from logs | |
-| image size | |
+| auto-init to active | bare `/v1/sys/health` 200 within 90 s of first boot; boot-path marker `first-run` |
+| health matrix | uninit: bare 501, manifest params 200; sealed (Shamir instance): bare 503, manifest params 503; active: 200/200 |
+| restart auto-unseal + KV read-back | boot-path marker `normal`; canary value byte-identical after restart |
+| snapshot save via job | 2 `raft-*.snap` present after first-boot + manual run (~21 KB each) |
+| restore into fresh store | fresh /app/openbao volume + existing /app/data: boot-path `restore`, `/run/openbao-restore-status` = `verified`, canary intact |
+| key rotation | `unseal.key` → `unseal.key.prev` + new key; restart auto-unseals; canary intact |
+| secrets hygiene | all four .secrets files 0600 cloudron:cloudron; root token absent from all container logs; `bao` runs as cloudron |
+| audit | declarative device `default/` listed; audit.log non-empty |
+| image size | 2547 MiB (cloudron/base accounts for ~2.5 GB, shared across apps) |
+
+Upstream behaviours observed: `operator init` on raft takes ~9-10 s; single
+node raft init logs a cosmetic `cannot find peer` ERROR; audit devices are
+config-managed only (API returns 400).
 
 ### Gate 0: install, health, first-run (box)
 
