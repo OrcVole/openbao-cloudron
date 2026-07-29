@@ -114,6 +114,33 @@ BP=$(crun cat /run/openbao-boot-path 2>/dev/null | tr -d '[:space:]')
 VAL=$(kvget "${P}-main")
 [[ "$VAL" == "expected-value-42" ]] && pass "KV read-back after restart" || fail "KV read-back after restart got '$VAL'"
 
+say "=== 2b. OIDC: operator policy grants survive boot re-provisioning ==="
+# No Cloudron OIDC provider exists locally, so point the wiring script at the
+# server's own built-in identity OIDC provider (issuer forced to the local
+# listener so discovery validation passes) and run it twice, granting a policy
+# in between, the way an operator following INTEGRATIONS.md would.
+OIDC_SMOKE_ENV="CLOUDRON_OIDC_DISCOVERY_URL=http://127.0.0.1:8200/v1/identity/oidc/provider/default/.well-known/openid-configuration CLOUDRON_OIDC_CLIENT_ID=smoke-client CLOUDRON_OIDC_CLIENT_SECRET=smoke-secret CLOUDRON_APP_ORIGIN=http://127.0.0.1:8200"
+role_json() { crun bash -c 'export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=$(cat /app/data/.secrets/root-token); bao read -format=json auth/oidc/role/cloudron' 2>/dev/null; }
+
+crun bash -c 'export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=$(cat /app/data/.secrets/root-token); bao write identity/oidc/provider/default issuer=http://127.0.0.1:8200 >/dev/null 2>&1' || true
+crun bash -c "env ${OIDC_SMOKE_ENV} /app/code/configure-oidc.sh" > /dev/null 2>&1
+
+POLS=$(role_json | jq -r '.data.token_policies | sort | join(",")' 2>/dev/null)
+[[ "$POLS" == "default" ]] && pass "OIDC first provisioning: role has default policy only" || fail "OIDC first provisioning: policies '$POLS'"
+
+crun bash -c 'export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=$(cat /app/data/.secrets/root-token); echo "path \"secret/data/smoke\" { capabilities = [\"read\"] }" | bao policy write smoke-oidc - >/dev/null && bao write auth/oidc/role/cloudron token_policies="default,smoke-oidc" token_ttl=2h >/dev/null' \
+    && say "granted smoke-oidc policy and a 2h TTL to the role (simulating an operator)" \
+    || fail "could not grant a policy to the oidc role"
+
+crun bash -c "env ${OIDC_SMOKE_ENV} /app/code/configure-oidc.sh" > /dev/null 2>&1
+
+POLS=$(role_json | jq -r '.data.token_policies | sort | join(",")' 2>/dev/null)
+[[ "$POLS" == "default,smoke-oidc" ]] && pass "re-provisioning preserved operator-granted policies" || fail "re-provisioning clobbered policies: '$POLS'"
+TTLV=$(role_json | jq -r '.data.token_ttl' 2>/dev/null)
+[[ "$TTLV" == "7200" ]] && pass "re-provisioning preserved operator-set TTL" || fail "re-provisioning reset token_ttl to '$TTLV'"
+RURI=$(role_json | jq -r '.data.allowed_redirect_uris[0]' 2>/dev/null)
+[[ "$RURI" == "http://127.0.0.1:8200/ui/vault/auth/oidc/oidc/callback" ]] && pass "re-provisioning re-applied the redirect URI" || fail "redirect URI is '$RURI'"
+
 say "=== 3. health matrix on a Shamir container (uninit and sealed states) ==="
 podman volume create "${P}-sdata" > /dev/null; podman volume create "${P}-sraft" > /dev/null
 podman run -d --name "${P}-shamir" --read-only --tmpfs /run --tmpfs /tmp \

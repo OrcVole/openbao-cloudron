@@ -26,6 +26,11 @@ bao write auth/oidc/role/cloudron token_policies="default,readers"
 (That grants every Cloudron user `readers`; for per-user or per-group grants
 use identity entities and groups, see the OpenBao identity documentation.)
 
+Grants persist: the package re-applies the OIDC wiring on every boot (the
+addon's client credentials can change), but it preserves the role's
+`token_policies`, `token_ttl` and `token_max_ttl`, so policies you attach and
+TTLs you tune survive restarts and updates.
+
 SSO here is the UI login only. The CLI's own OIDC flow needs a localhost
 redirect that cannot be registered with Cloudron's provider; CLI and machine
 access use tokens, userpass or AppRole as below.

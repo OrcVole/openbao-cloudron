@@ -1,3 +1,6 @@
+[1.0.1] - unreleased
+* Fix: the boot-time OIDC re-provisioning no longer resets the `cloudron` role's token_policies/token_ttl/token_max_ttl — operator-granted policies now survive restarts and updates
+
 [1.0.0]
 * Initial release
 * OpenBao 2.6.1, integrated raft storage, web UI enabled
