@@ -173,6 +173,16 @@ secure_secret_file() {
 
 exec_server() {
     write_managed_config "${PUBLIC_ADDR}"
+    # Address the backupCommand's temporary container (cloudron network, no
+    # CLOUDRON_* env, no localhost server) can reach the live server on.
+    CONTAINER_IP="$(hostname -i 2>/dev/null | awk '{print $1}')"
+    if [[ -n "${CONTAINER_IP}" ]]; then
+        printf 'http://%s:8200\n' "${CONTAINER_IP}" > "${DATA}/.snapshot-endpoint"
+        chown cloudron:cloudron "${DATA}/.snapshot-endpoint"
+    fi
+    # Cloudron SSO wiring runs against the live server after it is up; it is
+    # forked before exec and survives as an orphan of the server process.
+    ( sleep 2; /app/code/configure-oidc.sh ) &
     echo "==> [start] http on ${PUBLIC_ADDR}"
     exec gosu cloudron:cloudron "${CODE}/bao" server -config "${CONFIG_DIR}"
 }

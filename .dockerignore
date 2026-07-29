@@ -2,3 +2,4 @@
 !Dockerfile
 !start.sh
 !snapshot.sh
+!configure-oidc.sh
