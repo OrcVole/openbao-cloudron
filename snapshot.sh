@@ -26,7 +26,9 @@ AUDIT_ROTATE_BYTES=$((64 * 1024 * 1024))
 
 log() { echo "==> [snapshot] $*"; }
 
-export BAO_ADDR="http://127.0.0.1:8200"
+# Default to the local listener, but respect a caller-provided BAO_ADDR
+# (start.sh calls first-boot mode against the private scratch listener).
+export BAO_ADDR="${BAO_ADDR:-http://127.0.0.1:8200}"
 if [[ "${MODE}" == "pre-backup" ]]; then
     # Temporary container: no server on localhost. The public origin may or may
     # not be reachable from here; if it is not, the newest hourly snapshot
