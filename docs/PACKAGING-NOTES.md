@@ -90,16 +90,36 @@ gate evidence tables.
   scratch cluster adopts the snapshot's data and re-unseals under the same
   static key.
 
-**Assumed, to verify on the box (gate ladder):**
+**Now verified on the box (Cloudron 9.2.0 gate ladder), superseding the
+earlier assumptions:**
 
 * The `scheduler` addon executes the command inside the live app container
-  (so `localhost:8200` is reachable from the snapshot job).
-* `backupCommand` runs in a temporary container where the live server is
-  not on localhost; whether that container can reach the app's public
-  origin decides if pre-backup snapshots work (the job is best-effort
-  either way).
-* `persistentDirs` content survives update and restart but comes back
-  empty after a restore into a new location; the boot-time snapshot
-  restore covers it.
+  (a real snapshot appeared 13 seconds after the cron minute, taken via
+  localhost). It runs as root in the container; files it creates are
+  root-owned until the next boot's ownership sweep.
+* `backupCommand` runs in a temporary container (`docker run` on the app
+  image) with `/app/data` and the persistentDirs mounted, joined to the
+  cloudron network, with NO `CLOUDRON_*` environment and stdout discarded
+  (`--log-driver=none`). It cannot reach the live server on localhost and
+  cannot learn the app's address from the environment. The working
+  pattern: the entrypoint writes the container's IPv4 address into
+  `/app/data/.snapshot-endpoint` at each boot, and the backup job reads it
+  over the shared mount; a fresh raft snapshot then lands in every backup
+  seconds before the file walk (proven live).
+* `persistentDirs` semantics differ by operation, verified empirically: an
+  update and an in-place restore both PRESERVE the persistent dir (after
+  an in-place restore the store can therefore be newer than the restored
+  `/app/data`); a clone to a new location starts it EMPTY, which drives
+  the package's boot-time snapshot restore (proven: exact snapshot cut,
+  stored root token valid).
 * Health-check query parameters in `healthCheckPath` pass through the
-  platform's health prober unmangled.
+  platform's prober unmangled (sealed 503 and uninitialised 200 both
+  observed through it).
+* Cloudron SSO verified end to end: the oidc addon injects the platform
+  provider, the package's provisioner registers OpenBao's UI callback
+  (`/ui/vault/auth/oidc/oidc/callback`), and a real-browser Cloudron
+  sign-in succeeded, arriving with the zero-access default policy.
+* Platform behaviour worth knowing: `cloudron uninstall` can fail
+  transiently if the platform's IPv6-detection API
+  (`ipv6.api.cloudron.io`) is unreachable during DNS unregistration; the
+  retry succeeded.

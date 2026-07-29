@@ -40,11 +40,12 @@ Cloudron 9.2.0, install by digest from a private-mirror registry, location
 | secret idempotency across restart | combined sha256 prefix `2ca54d60fad783a1` identical before/after `cloudron restart`; boot-path marker `first-run` → `normal` |
 | health-check query params | pass the platform prober unmangled (assumption confirmed) |
 
-### Gate 1: auth — CLI side PASS 2026-07-29; browser login held open for operator confirmation
+### Gate 1: auth — PASS 2026-07-29 (operator-confirmed in a real browser)
 
 | Invariant | Proof |
 |---|---|
-| UI token login works | operator browser step, pending confirmation |
+| UI token login works | operator confirmed real-browser login with the root token |
+| Cloudron SSO login works | operator confirmed real-browser OIDC sign-in with a Cloudron account; provisioner had registered the exact UI callback (`/ui/vault/auth/oidc/oidc/callback`) against the platform provider, and `auth/oidc/oidc/auth_url` mints a valid authorisation URL |
 | health path open without auth | external GET 200 with no credential |
 | API 403 without token | `/v1/secret/data/x` 403, `/v1/sys/mounts` 403 |
 | API works with token | KV put/get via public origin, value byte-identical; API POST/GET round-trip byte-identical |
@@ -85,13 +86,28 @@ a temp container with no `CLOUDRON_*` env and stdout discarded
 snapshot needs the boot-written `/app/data/.snapshot-endpoint` to find the
 live server.
 
+### Final-digest round (shipping digest `1625b72e…`) — 2026-07-29
+
+| Invariant | Proof |
+|---|---|
+| digest | RepoDigest exactly `@sha256:1625b72e…`; local smoke 27/27 on the same build |
+| first-boot SSO provisioning | `[oidc] Cloudron SSO configured` on the FIRST boot (scratch-listener inheritance bug fixed) |
+| snapshot endpoint | `/app/data/.snapshot-endpoint` carries the container's IPv4 |
+| pre-backup snapshot | `cloudron backup create` produced a fresh snapshot mid-backup (temp container reached the live server via the endpoint file over the cloudron network) |
+| restart | boot `normal`, combined secret sha256 stable, canary intact |
+| restore path on this build | proven by the local smoke's restore-into-fresh assertion (byte-identical canary, verified root token); on-box clone proven in the previous round on the rc digest (identical restore code) |
+
 ### Gate 4: memory
 
-| Invariant | Idle | Loaded |
+Cgroup note: on this host the container cgroup lives at
+`/sys/fs/cgroup/docker/<id>` (cgroupfs driver), not under `system.slice`;
+`memory.peak` rejects `reset`, so the idle baseline is taken after a restart.
+
+| Invariant | Idle (post-restart) | Loaded |
 |---|---|---|
-| memory.current / memory.peak | | |
-| oom_kill | | |
-| verdict vs 1 GiB limit | | |
+| memory.current / memory.peak | 31 MiB / 45 MiB | see load run |
+| oom_kill | 0 | |
+| verdict vs 1 GiB limit | comfortable | |
 
 ## Recovery recipes
 
