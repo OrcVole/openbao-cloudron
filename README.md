@@ -143,6 +143,12 @@ initialise and unseal a fresh store). Auto-unseal exists because a secrets
 manager that is down after every automatic update is not much of a secrets
 manager; Shamir mode is there because the choice is yours to make.
 
+## Architecture
+
+amd64 only. Cloudron does not support ARM and `cloudron/base` is
+published for amd64 only, so there is no arm64 target for a package built
+on that base. See `docs/ARM64-PLAN.md`.
+
 ## Memory
 
 The default memory limit is 1 GB. OpenBao's raft storage maps its database
