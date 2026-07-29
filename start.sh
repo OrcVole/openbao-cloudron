@@ -119,6 +119,15 @@ storage "raft" {
 }
 
 cluster_addr = "http://127.0.0.1:8201"
+
+# File audit log (OpenBao manages audit devices declaratively; the API route
+# is disabled upstream). Remove this block and restart to disable auditing.
+# The package rotates the file at 64 MB.
+audit "file" "default" {
+  options {
+    file_path = "/app/data/audit/audit.log"
+  }
+}
 EOF
     chown cloudron:cloudron "${MAIN_HCL}"
 fi
@@ -177,6 +186,9 @@ else
     BOOT_PATH=first-run
 fi
 echo "==> [start] seal mode: ${SEAL_MODE}, boot path: ${BOOT_PATH}"
+# Machine-readable breadcrumbs for this boot (tmpfs, so always current-boot).
+printf '%s\n' "${BOOT_PATH}" > /run/openbao-boot-path
+printf '%s\n' "${SEAL_MODE}" > /run/openbao-seal-mode
 
 if [[ "${SEAL_MODE}" == "shamir" ]]; then
     if [[ "${BOOT_PATH}" == "restore" ]]; then
@@ -231,11 +243,11 @@ first-run)
 
     # Credentials are safe on disk from here; provisioning failures below are
     # warnings, not crash loops (the operator can complete them by hand).
-    echo "==> [start] enabling KV v2 at secret/, file audit device, snapshot access"
+    # The file audit device is declarative, in main.hcl; the API route is
+    # disabled upstream.
+    echo "==> [start] enabling KV v2 at secret/ and snapshot access"
     "${CODE}/bao" secrets enable -path=secret -version=2 kv \
         || echo "==> [start] WARNING: could not mount KV v2 at secret/" >&2
-    "${CODE}/bao" audit enable file file_path="${AUDIT_DIR}/audit.log" \
-        || echo "==> [start] WARNING: could not enable the file audit device" >&2
     if printf 'path "sys/storage/raft/snapshot" {\n  capabilities = ["read"]\n}\n' \
         | "${CODE}/bao" policy write snapshot-backup -; then
         ( umask 077
@@ -305,9 +317,13 @@ restore)
     if [[ -f "${SECRETS_DIR}/root-token" ]]; then
         if BAO_TOKEN="$(cat "${SECRETS_DIR}/root-token")" "${CODE}/bao" token lookup > /dev/null 2>&1; then
             echo "==> [start] restore verified: stored root token is valid against the restored data"
+            printf 'verified\n' > /run/openbao-restore-status
         else
             echo "==> [start] WARNING: stored root token is not valid against the restored data" >&2
+            printf 'token-invalid\n' > /run/openbao-restore-status
         fi
+    else
+        printf 'no-stored-token\n' > /run/openbao-restore-status
     fi
 
     stop_scratch_server

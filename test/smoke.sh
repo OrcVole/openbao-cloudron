@@ -51,6 +51,15 @@ kvget() { # kvget <container> -> prints canary value, with retries
     printf '%s' "$v"
 }
 
+log_has() { # log_has <container> <pattern> -> retries (journald log driver flushes lazily)
+    local i
+    for i in $(seq 1 6); do
+        podman logs "$1" 2>&1 | grep -q "$2" && return 0
+        sleep 2
+    done
+    return 1
+}
+
 dump_logs() {
     local c
     for c in "${P}-main" "${P}-shamir" "${P}-restore"; do
@@ -90,13 +99,18 @@ say "=== 2. write data, snapshot, restart auto-unseal ==="
 crun bash -c 'export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=$(cat /app/data/.secrets/root-token); bao kv put secret/smoke canary=expected-value-42 >/dev/null' \
     && pass "KV write via root token" || fail "KV write failed"
 
+AUDIT=$(crun bash -c 'export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=$(cat /app/data/.secrets/root-token); bao audit list 2>/dev/null' | tail -n +3 | head -1)
+[[ -n "${AUDIT}" ]] && pass "audit device enabled (${AUDIT%% *})" || fail "no audit device enabled"
+crun test -s /app/data/audit/audit.log && pass "audit log receiving entries" || fail "audit log empty or missing"
+
 crun /app/code/snapshot.sh > /dev/null 2>&1
 SNAPS=$(crun bash -c 'ls -1 /app/data/snapshots/raft-*.snap 2>/dev/null | wc -l')
 [[ "${SNAPS}" -ge 1 ]] && pass "snapshot job produced ${SNAPS} snapshot(s)" || fail "no snapshots present after snapshot.sh"
 
 podman restart "${P}-main" > /dev/null
 if wait_code "${PORT}" "" 200 60; then pass "restart: auto-unsealed with no intervention"; else fail "restart: did not come back unsealed"; fi
-podman logs "${P}-main" 2>&1 | grep -q "boot path: normal" && pass "restart took the normal boot path" || fail "restart did not take the normal boot path"
+BP=$(crun cat /run/openbao-boot-path 2>/dev/null | tr -d '[:space:]')
+[[ "$BP" == "normal" ]] && pass "restart took the normal boot path" || fail "restart boot path was '$BP'"
 VAL=$(kvget "${P}-main")
 [[ "$VAL" == "expected-value-42" ]] && pass "KV read-back after restart" || fail "KV read-back after restart got '$VAL'"
 
@@ -110,7 +124,8 @@ if wait_code "${SHAMIR_PORT}" "uninitcode=204" 204 60; then say "shamir containe
 [[ "$(health "${SHAMIR_PORT}")" == "501" ]] && pass "uninitialised: bare health 501" || fail "uninitialised bare health: got $(health "${SHAMIR_PORT}")"
 [[ "$(health "${SHAMIR_PORT}" "${MANIFEST_PARAMS}")" == "200" ]] && pass "uninitialised: manifest path 200" || fail "uninitialised manifest path: got $(health "${SHAMIR_PORT}" "${MANIFEST_PARAMS}")"
 
-INIT_JSON=$(curl -s --max-time 10 -X PUT "http://127.0.0.1:${SHAMIR_PORT}/v1/sys/init" -d '{"secret_shares":1,"secret_threshold":1}')
+# Init on raft storage takes about 10 seconds; allow for it.
+INIT_JSON=$(curl -s --max-time 45 -X PUT "http://127.0.0.1:${SHAMIR_PORT}/v1/sys/init" -d '{"secret_shares":1,"secret_threshold":1}')
 UNSEAL_KEY=$(jq -r '.keys_base64[0] // .keys_b64[0] // empty' <<< "${INIT_JSON}" 2>/dev/null)
 if [[ -n "${UNSEAL_KEY}" && "${UNSEAL_KEY}" != "null" ]]; then
     say "shamir container initialised (throwaway instance)"
@@ -135,7 +150,8 @@ podman run -d --name "${P}-restore" --read-only --tmpfs /run --tmpfs /tmp \
 
 if wait_code "${PORT}" "" 200 90; then pass "restore boot reached active"; else
     fail "restore boot did not reach active"; podman logs --tail 40 "${P}-restore"; fi
-podman logs "${P}-restore" 2>&1 | grep -q "restore verified" && pass "stored root token valid against restored data" || fail "restore verification line missing"
+RS=$(podman exec "${P}-restore" cat /run/openbao-restore-status 2>/dev/null | tr -d '[:space:]')
+[[ "$RS" == "verified" ]] && pass "stored root token valid against restored data" || fail "restore status was '$RS'"
 VAL=$(kvget "${P}-restore")
 [[ "$VAL" == "expected-value-42" ]] && pass "KV data survived snapshot restore" || fail "KV after restore got '$VAL'"
 
