@@ -9,7 +9,7 @@
     "website": "https://openbao.org",
     "documentationUrl": "https://openbao.org/docs/",
     "contactEmail": "OrcVole@users.noreply.github.com",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "upstreamVersion": "2.6.1",
     "healthCheckPath": "/v1/sys/health?standbyok=true&uninitcode=200&sealedcode=503",
     "httpPort": 8200,
@@ -52,7 +52,7 @@
     "mediaLinks": [
         "https://raw.githubusercontent.com/OrcVole/openbao-cloudron/main/screenshots/ui-overview.png"
     ],
-    "dockerImage": "ghcr.io/orcvole/openbao-cloudron@sha256:1625b72e1bfbd98db5df79b8bda0ae8c66479e80ff0eb23e14bdc23e4be60b7a",
+    "dockerImage": "ghcr.io/orcvole/openbao-cloudron@sha256:c68110e211d7034104d7fb0af3e6f0951af8b5a158041bdf6024f865532c7c6b",
     "tags": [
         "security",
         "secrets",
