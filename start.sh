@@ -3,14 +3,18 @@ set -euo pipefail
 
 # OpenBao for Cloudron entrypoint.
 #
-# Boot states this script handles:
-#   first run   raft store empty, no snapshots  -> generate key, init, provision
-#   normal      raft store has data             -> exec the server
-#   restore     raft store empty, snapshot present in /app/data
-#               (a Cloudron restore or clone brings back /app/data but the raft
-#               store lives on a persistentDir, which restores empty by design)
-#                                               -> init a scratch cluster, then
-#                                                  restore the newest snapshot
+# Boot states:
+#   first run   store empty, no snapshots -> generate key, init, provision
+#   normal      store has data            -> exec the server
+#   restore     store empty, snapshots present in /app/data
+#               (a Cloudron restore or clone brings back /app/data, but the
+#               raft store lives on a persistentDir, which restores empty)
+#                                         -> init a scratch cluster, restore
+#                                            the newest snapshot into it
+#
+# First-run and restore work happens on a private listener (127.0.0.1:8299)
+# so the public port never serves a half-provisioned or scratch store; every
+# path ends by exec-ing the server on the real listener.
 #
 # Seal modes:
 #   static (default)  auto-unseal via a package-generated 32-byte key file
@@ -29,8 +33,9 @@ readonly PREV_KEY_FILE="${SECRETS_DIR}/unseal.key.prev"
 readonly SHAMIR_MARKER="${SECRETS_DIR}/SHAMIR"
 readonly MANAGED_HCL="${CONFIG_DIR}/zz-managed.hcl"
 readonly MAIN_HCL="${CONFIG_DIR}/main.hcl"
+readonly PUBLIC_ADDR="0.0.0.0:8200"
+readonly SCRATCH_ADDR="127.0.0.1:8299"
 
-export BAO_ADDR="http://127.0.0.1:8200"
 ulimit -c 0
 
 echo "==> [start] OpenBao ${OPENBAO_VERSION:-unknown} booting"
@@ -38,7 +43,7 @@ echo "==> [start] OpenBao ${OPENBAO_VERSION:-unknown} booting"
 # --- 1. Layout and ownership. A restore resets both, so re-assert every boot. ---
 mkdir -p "${CONFIG_DIR}" "${SECRETS_DIR}" "${SNAP_DIR}" "${AUDIT_DIR}" "${RAFT_DIR}"
 chown -R cloudron:cloudron "${DATA}" "${RAFT_ROOT}"
-chmod 0700 "${SECRETS_DIR}"
+chmod 0700 "${SECRETS_DIR}" "${SNAP_DIR}"
 for f in "${KEY_FILE}" "${PREV_KEY_FILE}" "${SECRETS_DIR}/root-token" \
          "${SECRETS_DIR}/init.json" "${SECRETS_DIR}/snapshot-token"; do
     [[ -f "$f" ]] && { chown cloudron:cloudron "$f"; chmod 0600 "$f"; }
@@ -48,7 +53,7 @@ done
 SEAL_MODE=static
 if [[ -f "${SHAMIR_MARKER}" ]]; then
     SEAL_MODE=shamir
-elif [[ "${OPENBAO_SEAL:-}" == "shamir" && ! -f "${KEY_FILE}" && ! -e "${RAFT_DIR}/raft.db" ]]; then
+elif [[ "${OPENBAO_SEAL:-}" == "shamir" && ! -f "${KEY_FILE}" && ! -e "${RAFT_DIR}/raft/raft.db" ]]; then
     # Operator opted out of auto-unseal before first initialisation.
     touch "${SHAMIR_MARKER}"
     chown cloudron:cloudron "${SHAMIR_MARKER}"
@@ -61,41 +66,44 @@ if [[ "${SEAL_MODE}" == "static" && ! -f "${KEY_FILE}" ]]; then
     chown cloudron:cloudron "${KEY_FILE}"; chmod 0600 "${KEY_FILE}"
 fi
 
-# --- 3. Managed config, regenerated every boot ---
-XFF_BLOCK=""
-if [[ -n "${CLOUDRON_PROXY_IP:-}" ]]; then
-    PROXY_CIDR="${CLOUDRON_PROXY_IP}"
-    [[ "${PROXY_CIDR}" != */* ]] && PROXY_CIDR="${PROXY_CIDR}/32"
-    XFF_BLOCK=$(printf '  x_forwarded_for_authorized_addrs = "%s"\n  x_forwarded_for_reject_not_present = "false"\n  x_forwarded_for_reject_not_authorized = "false"' "${PROXY_CIDR}")
-fi
+# --- 3. Managed config (listener, api_addr, seal), regenerated as needed ---
+write_managed_config() { # write_managed_config <listen-addr>
+    local listen_addr="$1" xff_block="" seal_block=""
 
-SEAL_BLOCK=""
-if [[ "${SEAL_MODE}" == "static" ]]; then
-    KEY_ID="$(sha256sum < "${KEY_FILE}" | cut -c1-8)"
-    SEAL_BLOCK=$(printf 'seal "static" {\n  current_key_id = "%s"\n  current_key    = "file://%s"\n' "${KEY_ID}" "${KEY_FILE}")
-    if [[ -f "${PREV_KEY_FILE}" ]]; then
-        PREV_ID="$(sha256sum < "${PREV_KEY_FILE}" | cut -c1-8)"
-        SEAL_BLOCK+=$(printf '\n  previous_key_id = "%s"\n  previous_key    = "file://%s"\n' "${PREV_ID}" "${PREV_KEY_FILE}")
+    if [[ -n "${CLOUDRON_PROXY_IP:-}" ]]; then
+        local proxy_cidr="${CLOUDRON_PROXY_IP}"
+        [[ "${proxy_cidr}" != */* ]] && proxy_cidr="${proxy_cidr}/32"
+        xff_block=$(printf '  x_forwarded_for_authorized_addrs = "%s"\n  x_forwarded_for_reject_not_present = "false"\n  x_forwarded_for_reject_not_authorized = "false"' "${proxy_cidr}")
     fi
-    if [[ "${OPENBAO_SEAL_DISABLED:-}" == "true" ]]; then
-        SEAL_BLOCK+=$'\n  disabled = "true"\n'
-        echo "==> [start] seal migration mode: static seal marked disabled"
-    fi
-    SEAL_BLOCK+=$'\n}'
-fi
 
-cat > "${MANAGED_HCL}" <<EOF
+    if [[ "${SEAL_MODE}" == "static" ]]; then
+        local key_id prev_id
+        key_id="$(sha256sum < "${KEY_FILE}" | cut -c1-8)"
+        seal_block=$(printf 'seal "static" {\n  current_key_id = "%s"\n  current_key    = "file://%s"' "${key_id}" "${KEY_FILE}")
+        if [[ -f "${PREV_KEY_FILE}" ]]; then
+            prev_id="$(sha256sum < "${PREV_KEY_FILE}" | cut -c1-8)"
+            seal_block+=$(printf '\n  previous_key_id = "%s"\n  previous_key    = "file://%s"' "${prev_id}" "${PREV_KEY_FILE}")
+        fi
+        if [[ "${OPENBAO_SEAL_DISABLED:-}" == "true" ]]; then
+            seal_block+=$'\n  disabled = "true"'
+            echo "==> [start] seal migration mode: static seal marked disabled"
+        fi
+        seal_block+=$'\n}'
+    fi
+
+    cat > "${MANAGED_HCL}" <<EOF
 # Managed by the Cloudron package. Regenerated on every start; do not edit.
 # Operator settings belong in main.hcl.
 listener "tcp" {
-  address     = "0.0.0.0:8200"
+  address     = "${listen_addr}"
   tls_disable = "true"
-${XFF_BLOCK}
+${xff_block}
 }
 api_addr = "${CLOUDRON_APP_ORIGIN:-http://127.0.0.1:8200}"
-${SEAL_BLOCK}
+${seal_block}
 EOF
-chown cloudron:cloudron "${MANAGED_HCL}"
+    chown cloudron:cloudron "${MANAGED_HCL}"
+}
 
 # --- 4. Operator config, generated once ---
 if [[ ! -f "${MAIN_HCL}" ]]; then
@@ -115,33 +123,34 @@ EOF
     chown cloudron:cloudron "${MAIN_HCL}"
 fi
 
-# --- helpers ---
+# --- helpers for the scratch (private listener) phases ---
 SERVER_PID=""
 
-start_server_background() {
+start_scratch_server() {
+    write_managed_config "${SCRATCH_ADDR}"
     gosu cloudron:cloudron "${CODE}/bao" server -config "${CONFIG_DIR}" &
     SERVER_PID=$!
-    trap 'kill -TERM "${SERVER_PID}" 2>/dev/null || true' TERM INT
-    trap 'kill -HUP "${SERVER_PID}" 2>/dev/null || true' HUP
+    trap 'kill -TERM "${SERVER_PID}" 2>/dev/null || true; exit 143' TERM INT
+    export BAO_ADDR="http://${SCRATCH_ADDR}"
 }
 
-wait_listener() {
+stop_scratch_server() {
+    trap - TERM INT
+    kill -TERM "${SERVER_PID}" 2>/dev/null || true
     local i
-    for i in $(seq 1 120); do
-        if curl -sf -o /dev/null --max-time 2 \
-            "http://127.0.0.1:8200/v1/sys/health?uninitcode=200&sealedcode=200&standbycode=200"; then
-            return 0
-        fi
+    for i in $(seq 1 30); do
+        kill -0 "${SERVER_PID}" 2>/dev/null || break
         sleep 1
     done
-    echo "==> [start] ERROR: server did not start listening within 120s" >&2
-    return 1
+    kill -9 "${SERVER_PID}" 2>/dev/null || true
+    wait "${SERVER_PID}" 2>/dev/null || true
+    SERVER_PID=""
 }
 
-wait_unsealed() {
+wait_scratch() { # wait_scratch <extra-params> <tries>
     local i
-    for i in $(seq 1 60); do
-        if curl -sf -o /dev/null --max-time 2 "http://127.0.0.1:8200/v1/sys/health?standbyok=true"; then
+    for i in $(seq 1 "${2:-90}"); do
+        if curl -sf -o /dev/null --max-time 2 "http://${SCRATCH_ADDR}/v1/sys/health?${1}"; then
             return 0
         fi
         sleep 1
@@ -153,8 +162,14 @@ secure_secret_file() {
     chown cloudron:cloudron "$1"; chmod 0600 "$1"
 }
 
+exec_server() {
+    write_managed_config "${PUBLIC_ADDR}"
+    echo "==> [start] http on ${PUBLIC_ADDR}"
+    exec gosu cloudron:cloudron "${CODE}/bao" server -config "${CONFIG_DIR}"
+}
+
 # --- 5. Choose the boot path ---
-if [[ -e "${RAFT_DIR}/raft.db" ]]; then
+if [[ -e "${RAFT_DIR}/raft/raft.db" || -e "${RAFT_DIR}/vault.db" ]]; then
     BOOT_PATH=normal
 elif compgen -G "${SNAP_DIR}/*.snap" > /dev/null; then
     BOOT_PATH=restore
@@ -171,8 +186,7 @@ if [[ "${SEAL_MODE}" == "shamir" ]]; then
     elif [[ "${BOOT_PATH}" == "first-run" ]]; then
         echo "==> [start] Shamir mode: initialise and unseal via the web UI."
     fi
-    echo "==> [start] http on 0.0.0.0:8200"
-    exec gosu cloudron:cloudron "${CODE}/bao" server -config "${CONFIG_DIR}"
+    exec_server
 fi
 
 # --- static seal paths ---
@@ -180,29 +194,27 @@ case "${BOOT_PATH}" in
 
 normal)
     echo "==> [start] existing store found, auto-unseal via static key"
-    echo "==> [start] http on 0.0.0.0:8200"
-    exec gosu cloudron:cloudron "${CODE}/bao" server -config "${CONFIG_DIR}"
+    exec_server
     ;;
 
 first-run)
-    echo "==> [start] first run: initialising OpenBao"
+    echo "==> [start] first run: initialising OpenBao (private listener)"
     # On any failure before credentials are safely stored, wipe the scratch
     # store so the next boot retries first-run instead of silently taking the
     # normal path with an unusable half-provisioned store.
     abort_first_run() {
         echo "==> [start] ERROR: $1; wiping scratch store so next start retries" >&2
-        kill -TERM "${SERVER_PID}" 2>/dev/null || true
-        sleep 2
+        stop_scratch_server
         rm -rf "${RAFT_DIR:?}" && mkdir -p "${RAFT_DIR}" && chown cloudron:cloudron "${RAFT_DIR}"
         exit 1
     }
-    start_server_background
-    wait_listener || abort_first_run "server did not start listening"
+    start_scratch_server
+    wait_scratch "uninitcode=200&sealedcode=200&standbycode=200" || abort_first_run "server did not start listening"
 
     INIT_JSON=/run/openbao-init.json
     ( umask 077; "${CODE}/bao" operator init -recovery-shares=5 -recovery-threshold=3 -format=json > "${INIT_JSON}" ) \
         || abort_first_run "operator init failed"
-    wait_unsealed || abort_first_run "server did not unseal after init"
+    wait_scratch "standbyok=true" 60 || abort_first_run "server did not unseal after init"
 
     ROOT_TOKEN="$(jq -r .root_token "${INIT_JSON}")"
     [[ -n "${ROOT_TOKEN}" && "${ROOT_TOKEN}" != "null" ]] || abort_first_run "init produced no root token"
@@ -252,33 +264,34 @@ Credentials for this OpenBao instance. Every file here is 0600, cloudron:cloudro
 EOF
     chown cloudron:cloudron "${SECRETS_DIR}/README.txt"
 
-    "${CODE}/snapshot.sh" first-boot || echo "==> [start] WARNING: first snapshot failed (will retry hourly)"
+    BAO_ADDR="http://${SCRATCH_ADDR}" "${CODE}/snapshot.sh" first-boot \
+        || echo "==> [start] WARNING: first snapshot failed (will retry hourly)"
 
+    stop_scratch_server
     echo "==> [start] initialised; credentials in ${SECRETS_DIR} (see README.txt there)"
-    echo "==> [start] http on 0.0.0.0:8200"
+    exec_server
     ;;
 
 restore)
     LATEST_SNAP="$(ls -1t "${SNAP_DIR}"/*.snap 2>/dev/null | head -n1)"
-    echo "==> [start] empty store with snapshot present: restoring ${LATEST_SNAP##*/}"
+    echo "==> [start] empty store with snapshot present: restoring ${LATEST_SNAP##*/} (private listener)"
     # On failure, wipe the scratch cluster so the next boot retries the restore
     # instead of serving an empty store that looks healthy.
     abort_restore() {
         echo "==> [start] ERROR: $1" >&2
         echo "==> [start] If the unseal key was rotated after this snapshot was taken," >&2
         echo "==> [start] place the matching key at ${KEY_FILE} and restart." >&2
-        kill -TERM "${SERVER_PID}" 2>/dev/null || true
-        sleep 2
+        stop_scratch_server
         rm -rf "${RAFT_DIR:?}" && mkdir -p "${RAFT_DIR}" && chown cloudron:cloudron "${RAFT_DIR}"
         exit 1
     }
-    start_server_background
-    wait_listener || abort_restore "server did not start listening"
+    start_scratch_server
+    wait_scratch "uninitcode=200&sealedcode=200&standbycode=200" || abort_restore "server did not start listening"
 
     TMP_INIT=/run/openbao-tmp-init.json
     ( umask 077; "${CODE}/bao" operator init -recovery-shares=1 -recovery-threshold=1 -format=json > "${TMP_INIT}" ) \
         || abort_restore "scratch init failed"
-    wait_unsealed || abort_restore "scratch cluster did not unseal"
+    wait_scratch "standbyok=true" 60 || abort_restore "scratch cluster did not unseal"
 
     TMP_TOKEN="$(jq -r .root_token "${TMP_INIT}")"
     rm -f "${TMP_INIT}"
@@ -287,7 +300,7 @@ restore)
         || abort_restore "snapshot restore command failed"
     unset TMP_TOKEN
 
-    wait_unsealed || abort_restore "server not healthy after snapshot restore"
+    wait_scratch "standbyok=true" 90 || abort_restore "server not healthy after snapshot restore"
 
     if [[ -f "${SECRETS_DIR}/root-token" ]]; then
         if BAO_TOKEN="$(cat "${SECRETS_DIR}/root-token")" "${CODE}/bao" token lookup > /dev/null 2>&1; then
@@ -296,10 +309,9 @@ restore)
             echo "==> [start] WARNING: stored root token is not valid against the restored data" >&2
         fi
     fi
+
+    stop_scratch_server
     echo "==> [start] restore complete"
-    echo "==> [start] http on 0.0.0.0:8200"
+    exec_server
     ;;
 esac
-
-# first-run and restore paths reach here with the server running in the background
-wait "${SERVER_PID}"
