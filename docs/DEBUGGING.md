@@ -103,11 +103,17 @@ Cgroup note: on this host the container cgroup lives at
 `/sys/fs/cgroup/docker/<id>` (cgroupfs driver), not under `system.slice`;
 `memory.peak` rejects `reset`, so the idle baseline is taken after a restart.
 
+Load recipe (reproducible): 1500 KV v2 secrets with four fields (~250 B
+payload each) written sequentially via the CLI inside the container, a raft
+snapshot every 300 writes, then all 1500 read back and byte-compared.
+
 | Invariant | Idle (post-restart) | Loaded |
 |---|---|---|
-| memory.current / memory.peak | 31 MiB / 45 MiB | see load run |
-| oom_kill | 0 | |
-| verdict vs 1 GiB limit | comfortable | |
+| memory.current / memory.peak | 31 MiB / 45 MiB | 64 MiB / 85 MiB |
+| oom_kill | 0 | 0 |
+| load landed | n/a | 1500/1500 read-back byte-identical, 0 failures; 8 snapshots on disk |
+| per-process | bao ~136 MB RSS | bao ~155 MB RSS (mmap pages count against RSS; cgroup is authoritative) |
+| verdict vs 1 GiB limit | | PASS: loaded peak 8% of cap; worst realistic concurrent case (large list + snapshot + UI traffic) clears 1 GiB with hundreds of MiB of margin. Keep 1 GiB; raft mmap grows with stored data, and raising the limit is the documented knob for large stores. |
 
 ## Recovery recipes
 
