@@ -1,0 +1,10 @@
+# Local-only working material; never published.
+LOCAL-NOTES.md
+.anonymize-list
+*.token
+*token.txt
+.secrets/
+*.snap
+*.tgz
+*.tar.gz
+screenshots/raw/
