@@ -52,5 +52,11 @@
     "mediaLinks": [
         "https://raw.githubusercontent.com/OrcVole/openbao-cloudron/main/screenshots/ui-overview.png"
     ],
-    "dockerImage": "ghcr.io/orcvole/openbao-cloudron@sha256:1625b72e1bfbd98db5df79b8bda0ae8c66479e80ff0eb23e14bdc23e4be60b7a"
+    "dockerImage": "ghcr.io/orcvole/openbao-cloudron@sha256:1625b72e1bfbd98db5df79b8bda0ae8c66479e80ff0eb23e14bdc23e4be60b7a",
+    "tags": [
+        "security",
+        "secrets",
+        "vault",
+        "encryption"
+    ]
 }
