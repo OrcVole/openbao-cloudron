@@ -115,6 +115,15 @@ snapshot every 300 writes, then all 1500 read back and byte-compared.
 | per-process | bao ~136 MB RSS | bao ~155 MB RSS (mmap pages count against RSS; cgroup is authoritative) |
 | verdict vs 1 GiB limit | | PASS: loaded peak 8% of cap; worst realistic concurrent case (large list + snapshot + UI traffic) clears 1 GiB with hundreds of MiB of margin. Keep 1 GiB; raft mmap grows with stored data, and raising the limit is the documented knob for large stores. |
 
+### Publish gates — PASS 2026-07-29
+
+| Invariant | Proof |
+|---|---|
+| anonymous pull | logged-out `skopeo inspect` succeeds by tag AND by the shipping digest |
+| stranger install | `cloudron install --versions-url <published raw URL>` resolved and pulled the exact shipping digest ("from versions url" line), icon downloaded, install completed, health 200, `initialized:true sealed:false` with no human step; instance then uninstalled cleanly |
+| validator asymmetry found | the box rejects a versions-url install when `tags` is missing from the manifest ("Invalid manifest: tags is missing"), at install time only; ca.cloudron.io accepted the same file without complaint. Same class as the `packagerName` gate. Free-form tag strings are accepted. |
+| secret scan | clean (sha256 digest pins only) |
+
 ## Recovery recipes
 
 **Crash-looping app (bad config edit):** `cloudron exec` fails with 409 while
