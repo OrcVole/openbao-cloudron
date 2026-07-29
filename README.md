@@ -156,6 +156,15 @@ into memory, so the practical footprint grows with stored data; raise the
 limit in the app's settings if you store a large number of secrets or run
 heavy workloads.
 
+## For packagers
+
+`PACKAGING.md` collects what this package's build taught us: design lessons,
+Cloudron platform behaviour verified against the 9.2 box source (health
+monitor semantics, `backupCommand`'s temporary container, `persistentDirs`
+restore semantics, environment variables as a trust domain), and notes on
+OpenBao itself. The evidence log is `docs/PACKAGING-NOTES.md` and the design
+decisions are ADRs in `docs/decisions/`.
+
 ## Licence
 
 OpenBao is distributed unmodified under the Mozilla Public License 2.0
