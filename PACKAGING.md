@@ -99,6 +99,23 @@ load-bearing for a package like this one.
   it empty. Boot logic has to handle both, and only the second is the
   snapshot-restore path.
 
+## If anyone from Cloudron reads this
+
+Friendly asks, all documentation-shaped, arising from the platform section
+above:
+
+* Documenting the health monitor's semantics, the `backupCommand`
+  temporary container, and the fact that app environment variables are not
+  a secrets boundary would spare every packager the reverse-engineering
+  this package needed. (A longer-term nicety: encrypting env vars at rest.)
+* A supported pre-backup hook that runs **inside the live app container**,
+  immediately before the file walk, would let apps with embedded
+  datastores hand the platform a consistent artefact without the
+  address-file dance described above.
+* Backup walker resilience is worth a look independently: a directory
+  disappearing mid-walk should degrade to skipping that app, not abort the
+  whole server's backup run.
+
 ## Observations about upstream OpenBao
 
 Small, documentation-shaped notes from the packaging work, recorded here
