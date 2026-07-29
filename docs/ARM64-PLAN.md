@@ -16,8 +16,8 @@ until Cloudron's own position changes.
   image stage to be built from `cloudron/base` (the dashboard's file
   manager, web terminal and log viewer depend on its userland), an arm64
   final stage is not available at all.
-- Community requests for ARM exist on the Cloudron forum (Raspberry Pi,
-  Hetzner Ampere threads). The maintainers' stated position is that every
+- Community requests for ARM exist on the Cloudron forum (Raspberry Pi and
+  Ampere cloud-server threads). The maintainers' stated position is that every
   package would need repackaging and binaries rebuilt and tested per
   update, so it needs strong demand to justify. A `base-arm64` image
   exists but has not been updated in about two years.
