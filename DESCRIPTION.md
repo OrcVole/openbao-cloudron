@@ -1,3 +1,5 @@
+<upstream>2.6.1</upstream>
+
 OpenBao is an open source identity-based secrets and encryption management
 system, a community-driven fork of HashiCorp Vault stewarded by the Linux
 Foundation under the OpenSSF. It provides a central, audited place to store,
