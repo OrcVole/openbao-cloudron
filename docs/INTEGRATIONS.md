@@ -13,15 +13,22 @@ addon into OpenBao's OIDC auth method automatically. Cloudron users pick
 "OIDC" on the OpenBao login screen and sign in with their Cloudron account.
 
 They arrive with the `default` policy only: they exist, they can log in, and
-they can read nothing. Granting access is a deliberate operator act:
+they can read nothing — the UI shows an empty secrets engine even when
+`secret/` is full. Granting access is a deliberate operator act:
 
 ```
 # in the app's Web Terminal, authenticated as an admin
 bao policy write readers - <<'EOF'
-path "secret/data/shared/*" { capabilities = ["read", "list"] }
+path "secret/data/shared/*"     { capabilities = ["read"] }
+path "secret/metadata/shared/*" { capabilities = ["read", "list"] }
 EOF
 bao write auth/oidc/role/cloudron token_policies="default,readers"
 ```
+
+The `metadata` path is what makes secrets visible in the UI: the KV v2
+browser lists via `secret/metadata/`, so a grant on `secret/data/` alone
+reads fine over the API but still renders an empty tree. Users must log out
+and back in after a grant — policies attach at login, not to live sessions.
 
 (That grants every Cloudron user `readers`; for per-user or per-group grants
 use identity entities and groups, see the OpenBao identity documentation.)
