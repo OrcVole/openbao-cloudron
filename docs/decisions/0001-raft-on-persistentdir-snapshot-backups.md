@@ -27,33 +27,33 @@ sanctioned route.
 
 ## Decision
 
-* `storage "raft"` at `/app/openbao/data`, `node_id` fixed, single node,
+- `storage "raft"` at `/app/openbao/data`, `node_id` fixed, single node,
   `cluster_addr` on localhost.
-* `/app/openbao` is declared in `persistentDirs`: it survives restarts and
+- `/app/openbao` is declared in `persistentDirs`: it survives restarts and
   updates but is excluded from the filesystem backup entirely. Both hazards
   are removed structurally rather than mitigated.
-* A scheduler task takes an hourly raft snapshot into `/app/data/snapshots`
+- A scheduler task takes an hourly raft snapshot into `/app/data/snapshots`
   (atomic rename, newest 24 kept), and the manifest `backupCommand` tries to
   take a fresh snapshot at backup time (best effort: it runs in a temporary
   container where the live server is not on localhost, so it tries the
   public origin and exits 0 regardless).
-* On boot, an empty raft store next to existing snapshots is treated as a
+- On boot, an empty raft store next to existing snapshots is treated as a
   restore: the package initialises a scratch cluster, restores the newest
   snapshot with `-force`, and verifies the stored root token is valid
   against the restored data.
 
 ## Consequences
 
-* Every Cloudron backup contains only crash-consistent artefacts.
-* A restore loses writes made after the newest snapshot (up to one hour).
+- Every Cloudron backup contains only crash-consistent artefacts.
+- A restore loses writes made after the newest snapshot (up to one hour).
   This is documented, the cadence is visible in the manifest, and a manual
   pre-change snapshot command is documented. A secrets store is a very
   low-write workload; the window is acceptable and, unlike a torn copy, the
   behaviour is deterministic and testable.
-* In Shamir mode automatic snapshots stop while sealed and the boot-time
+- In Shamir mode automatic snapshots stop while sealed and the boot-time
   restore cannot run (no auto-unseal); this is documented as a stated
   trade-off of that mode.
-* Changing `persistentDirs` later requires uninstall/reinstall on existing
+- Changing `persistentDirs` later requires uninstall/reinstall on existing
   installs, so this layout must be right in v1. Greenfield advantage: there
   are no existing installs.
 

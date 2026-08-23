@@ -10,18 +10,18 @@ the OpenBao project, the Linux Foundation, or Cloudron.
 
 ## What you get
 
-* OpenBao with integrated raft storage and the web UI, on a single node.
-* **Auto-unseal by default** using OpenBao's built-in `static` seal. The
+- OpenBao with integrated raft storage and the web UI, on a single node.
+- **Auto-unseal by default** using OpenBao's built-in `static` seal. The
   instance survives restarts and Cloudron's automatic updates with no manual
   unseal ceremony.
-* **Zero-touch first start**: the package initialises OpenBao, mounts a KV v2
+- **Zero-touch first start**: the package initialises OpenBao, mounts a KV v2
   secrets engine at `secret/`, enables a file audit device, and stores the
   root token and recovery keys in `/app/data/.secrets` for you to collect.
-* **Consistent backups**: hourly raft snapshots (OpenBao's supported backup
+- **Consistent backups**: hourly raft snapshots (OpenBao's supported backup
   mechanism) are written into `/app/data/snapshots` and ride Cloudron's
   backups; a restore or clone rebuilds the store from the newest snapshot
   automatically.
-* A health check that reports a sealed instance as unhealthy, so the Cloudron
+- A health check that reports a sealed instance as unhealthy, so the Cloudron
   dashboard tells the truth.
 
 ## Install
@@ -38,11 +38,11 @@ Auto-unseal means the 32-byte unseal key lives at
 `/app/data/.secrets/unseal.key`, on the same server as the data it decrypts,
 and inside every app backup. Consequences:
 
-* A stolen **encrypted** Cloudron backup is safe; enable backup encryption.
-* A stolen **unencrypted** backup or disk image is readable. The seal then
+- A stolen **encrypted** Cloudron backup is safe; enable backup encryption.
+- A stolen **unencrypted** backup or disk image is readable. The seal then
   protects nothing; treat backup encryption as part of this package's
   security model.
-* Nothing protects against a hostile root or Cloudron admin on the server
+- Nothing protects against a hostile root or Cloudron admin on the server
   itself. That is true of every seal type without external key management.
 
 Upstream's guidance is that the static seal is appropriate "when an existing
@@ -56,28 +56,28 @@ on the server (this is host-level configuration, outside the app's control).
 
 ## Day-to-day
 
-* UI: `https://your.domain/ui/`. First login: method **Token**, using
+- UI: `https://your.domain/ui/`. First login: method **Token**, using
   `/app/data/.secrets/root-token`. Create a proper admin auth method
   (`userpass`, `oidc`, `ldap`) and keep the root token for emergencies.
-* **Cloudron single sign-on**: when installed with Cloudron user management,
+- **Cloudron single sign-on**: when installed with Cloudron user management,
   Cloudron accounts can sign in from the login screen's OIDC option. They
   arrive with the `default` policy and can read nothing until you grant
   policies; see `docs/INTEGRATIONS.md` for granting access and for wiring
   other applications to OpenBao (AppRole recipes).
-* CLI from your machine: install the `bao` CLI, then
+- CLI from your machine: install the `bao` CLI, then
   `export BAO_ADDR=https://your.domain` and `bao login`.
-* API: Vault-compatible, `https://your.domain/v1/...`. Existing Vault client
+- API: Vault-compatible, `https://your.domain/v1/...`. Existing Vault client
   libraries work unchanged.
-* Audit log: `/app/data/audit/audit.log`, rotated at 64 MB (one generation
+- Audit log: `/app/data/audit/audit.log`, rotated at 64 MB (one generation
   kept).
 
 ## Configuration
 
 Server configuration is a merged directory, `/app/data/config/`:
 
-* `main.hcl` is yours. It is generated once on first start and never touched
+- `main.hcl` is yours. It is generated once on first start and never touched
   again; edits survive restarts, updates, backups and restores.
-* `zz-managed.hcl` is the package's. It is regenerated on every start and
+- `zz-managed.hcl` is the package's. It is regenerated on every start and
   carries the listener, `api_addr` and the seal stanza. Do not edit it; do
   not redefine those stanzas in `main.hcl`.
 
@@ -89,13 +89,13 @@ database file is not crash-consistent, and OpenBao's own supported backup is
 a raft snapshot. What rides the Cloudron backup is `/app/data`, which
 contains the configuration, the credentials, and the snapshots.
 
-* Snapshots are taken hourly (at minute 17), before each Cloudron backup when
+- Snapshots are taken hourly (at minute 17), before each Cloudron backup when
   possible, and pruned to the newest 24.
-* On restore or clone, the app finds an empty store next to existing
+- On restore or clone, the app finds an empty store next to existing
   snapshots and rebuilds from the newest one, then verifies the restored data
   accepts the stored root token. Writes made after the last snapshot are not
   in the backup.
-* Before risky changes, take a manual snapshot from the app's Web Terminal:
+- Before risky changes, take a manual snapshot from the app's Web Terminal:
   `export BAO_TOKEN=$(cat /app/data/.secrets/root-token)` then
   `bao operator raft snapshot save /app/data/snapshots/raft-manual-$(date +%s).snap`
 
@@ -121,12 +121,12 @@ under an old key need that key to restore.
 
 For operators who want the unseal key material entirely off the server:
 
-* **Fresh install**: set the app environment variable `OPENBAO_SEAL=shamir`
+- **Fresh install**: set the app environment variable `OPENBAO_SEAL=shamir`
   (App, then Settings, then Environment) before the app's very first start,
   or reinstall with it set. The package then skips key generation and
   automatic initialisation; initialise and unseal via the UI as upstream
   documents.
-* **Migration in either direction** uses OpenBao's seal migration: to leave
+- **Migration in either direction** uses OpenBao's seal migration: to leave
   static seal, set `OPENBAO_SEAL_DISABLED=true` (the package marks the seal
   `disabled = "true"`), restart, and run `bao operator unseal -migrate` with
   the recovery keys from `/app/data/.secrets/init.json`; afterwards create
@@ -169,5 +169,5 @@ decisions are ADRs in `docs/decisions/`.
 
 OpenBao is distributed unmodified under the Mozilla Public License 2.0
 (`LICENSE`, also shipped in the image as `/app/code/LICENSE-openbao`); source
-is at https://github.com/openbao/openbao. The packaging in this repository is
+is at <https://github.com/openbao/openbao>. The packaging in this repository is
 likewise MPL-2.0. See `NOTICE`.

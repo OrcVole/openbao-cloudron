@@ -15,34 +15,34 @@ verify against, so the deferral no longer buys anything.
 
 ## Decision
 
-* Declare the `oidc` addon with `loginRedirectUri` on OpenBao's UI callback
+- Declare the `oidc` addon with `loginRedirectUri` on OpenBao's UI callback
   path (`/ui/vault/auth/oidc/oidc/callback`, verified at the gate), plus
   `optionalSso: true` so operators can install without Cloudron user
   management at all.
-* A boot-time provisioner (`configure-oidc.sh`, forked before the server
+- A boot-time provisioner (`configure-oidc.sh`, forked before the server
   exec, idempotent, re-applied every boot because addon credentials can
   change) enables the OIDC auth method with unauthenticated listing (the
   login screen shows the option), points it at `CLOUDRON_OIDC_*`, and
   creates one role `cloudron` with `token_policies="default"`.
-* **SSO users get no secret access by default.** The `default` policy lets
+- **SSO users get no secret access by default.** The `default` policy lets
   them exist and log in, nothing more. Granting read access to anything is
   a deliberate operator act (documented in `docs/INTEGRATIONS.md`). This is
   how a secrets manager should treat a whole-directory login grant.
-* Machine consumers use AppRole with per-consumer minimal policies, never
+- Machine consumers use AppRole with per-consumer minimal policies, never
   the root token; `docs/INTEGRATIONS.md` carries the recipes. The UI SSO
   and the programmatic API are independent surfaces; SSO walls nothing.
-* Shamir mode: the provisioner skips (no stored root token) and the
+- Shamir mode: the provisioner skips (no stored root token) and the
   operator wires OIDC themselves if wanted.
 
 ## Consequences
 
-* Fresh installs with user management get a working "sign in with
+- Fresh installs with user management get a working "sign in with
   Cloudron" out of the box, with a safe-by-default authorisation posture.
-* The provisioner needs the stored root token at boot; if the operator
+- The provisioner needs the stored root token at boot; if the operator
   revokes it (as POSTINSTALL suggests they eventually might), the
   re-application stops with a logged warning and the existing OIDC config
   simply persists. Rotating the addon's client secret after root-token
   revocation requires a manual `bao write auth/oidc/config`; documented.
-* CLI OIDC login against Cloudron is out of scope (localhost redirect URIs
+- CLI OIDC login against Cloudron is out of scope (localhost redirect URIs
   cannot be registered with the platform's provider); tokens, userpass and
   AppRole cover CLI and machines.

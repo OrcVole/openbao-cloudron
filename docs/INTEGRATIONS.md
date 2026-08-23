@@ -75,11 +75,11 @@ provider) work unchanged against the same endpoint.
 
 ## Notes
 
-* Health endpoint for readiness checks from other apps:
+- Health endpoint for readiness checks from other apps:
   `GET /v1/sys/health` (200 when serving; no credential needed).
-* Everything is also reachable at `/v1/...` under the app's domain through
+- Everything is also reachable at `/v1/...` under the app's domain through
   Cloudron's reverse proxy with TLS terminated by the platform.
-* Audit: every access from every consumer lands in
+- Audit: every access from every consumer lands in
   `/app/data/audit/audit.log`.
-* Do not embed the root token in any consumer. If a consumer needs broader
+- Do not embed the root token in any consumer. If a consumer needs broader
   rights, write it a broader policy; the root token is for break-glass.

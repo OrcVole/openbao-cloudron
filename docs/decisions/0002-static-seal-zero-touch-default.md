@@ -34,12 +34,12 @@ operator caused deliberately.
 
 ## Decision
 
-* Default seal: `static`, key generated on first boot with
+- Default seal: `static`, key generated on first boot with
   `openssl rand -out unseal.key 32` into `/app/data/.secrets` (0600,
   re-asserted every boot). The seal key id is the first 8 hex characters of
   the key's SHA-256, so id-follows-key is guaranteed and rotation is a file
   swap (`unseal.key.prev` becomes `previous_key`).
-* First boot initialises OpenBao automatically: `operator init` (5 recovery
+- First boot initialises OpenBao automatically: `operator init` (5 recovery
   shares, threshold 3), root token and full init output stored in
   `/app/data/.secrets`, KV v2 mounted at `secret/`, and a minimal-policy
   periodic token created for the snapshot job. The file audit device is
@@ -47,24 +47,24 @@ operator caused deliberately.
   disables audit device creation via the API (since v2.3.2).
   The post-install checklist directs the operator to copy the recovery
   material off the server and enable backup encryption.
-* Package-driven init was chosen over OpenBao's declarative `initialize`
+- Package-driven init was chosen over OpenBao's declarative `initialize`
   stanza because the stanza revokes the root token after use, which locks
   the operator out unless the stanza also provisions an admin auth method;
   retaining the root token for the operator is the simpler and safer v1.
-* Shamir remains available: `OPENBAO_SEAL=shamir` before first start, or the
+- Shamir remains available: `OPENBAO_SEAL=shamir` before first start, or the
   documented seal migration procedure in either direction. Its trade-offs
   (flagged unhealthy while sealed, no automatic snapshots while sealed,
   manual restore procedure) are documented rather than hidden.
 
 ## Consequences
 
-* Install-to-usable is zero-touch, which is the package's reason to exist.
-* The unseal key, root token and recovery keys live on the server and in
+- Install-to-usable is zero-touch, which is the package's reason to exist.
+- The unseal key, root token and recovery keys live on the server and in
   its backups until the operator moves them; POSTINSTALL and the checklist
   make the off-server copy the first action. Backup encryption is
   recommended in the same breath. The threat model is stated plainly in
   README and SECURITY.
-* The security-conscious path is opt-in rather than default. This is a
+- The security-conscious path is opt-in rather than default. This is a
   deliberate reversal of the earlier draft, justified by the placement
   finding, and it matches how Cloudron packages are expected to behave
   (working immediately after install).

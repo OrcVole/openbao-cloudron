@@ -12,11 +12,11 @@ OpenBao has a complete authentication system of its own (token, userpass,
 OIDC, LDAP methods), fine-grained policies, and both a human UI and a
 programmatic API on the same port. The Cloudron options would be:
 
-* `proxyAuth`: wrong here. It would wall the Vault-compatible API behind an
+- `proxyAuth`: wrong here. It would wall the Vault-compatible API behind an
   interactive login, breaking every CLI and client library, and OpenBao's
   own auth would still exist behind it. The house rule is proxyAuth only for
   apps with no auth of their own.
-* The `oidc` addon: plausible and attractive (Cloudron users signing in to
+- The `oidc` addon: plausible and attractive (Cloudron users signing in to
   the OpenBao UI via Cloudron), wiring `CLOUDRON_OIDC_*` into OpenBao's OIDC
   auth method. But the method's role/policy mapping and the UI callback path
   need empirical verification, auth methods are persistent server state

@@ -43,18 +43,18 @@ in both directions.
 
 #### Cloudron sign-in (reference)
 
-<sso>Cloudron users can sign in from the UI's **OIDC** option. They get no
+`<sso>`Cloudron users can sign in from the UI's **OIDC** option. They get no
 access to any secret until you grant policies (Access, then Authentication
 methods, or see the package's INTEGRATIONS documentation). Other apps should
 use AppRole credentials, never the root token.</sso>
 
 #### Useful facts (reference, not setup)
 
-* CLI from your own machine: `export BAO_ADDR=https://$CLOUDRON-APP-FQDN` then
+- CLI from your own machine: `export BAO_ADDR=https://$CLOUDRON-APP-FQDN` then
   `bao login` (the `bao` CLI is a single binary from openbao.org; the `vault`
   CLI also works against it).
-* The API is Vault-compatible at `https://$CLOUDRON-APP-FQDN/v1/...`.
-* Audit log: `/app/data/audit/audit.log` (rotated automatically at 64 MB).
-* A KV v2 secrets engine is mounted at `secret/`.
-* Operator configuration lives in `/app/data/config/main.hcl`; the seal and
+- The API is Vault-compatible at `https://$CLOUDRON-APP-FQDN/v1/...`.
+- Audit log: `/app/data/audit/audit.log` (rotated automatically at 64 MB).
+- A KV v2 secrets engine is mounted at `secret/`.
+- Operator configuration lives in `/app/data/config/main.hcl`; the seal and
   listener are package-managed in `zz-managed.hcl` and regenerate on restart.
