@@ -1,10 +1,10 @@
-FROM cloudron/base:5.0.0@sha256:04fd70dbd8ad6149c19de39e35718e024417c3e01dc9c6637eaf4a41ec4e596c
+FROM cloudron/base:5.1.0@sha256:1c0666c9abe9e2090d33686826d4e97769b799124573118d41e0d7485135748e
 
 # Upstream release, pinned in one place. The manifest mirrors it in upstreamVersion.
-ARG OPENBAO_VERSION=2.6.2
+ARG OPENBAO_VERSION=2.6.3
 # SHA-256 of openbao_${OPENBAO_VERSION}_linux_amd64.tar.gz, transcribed from the
 # release checksums.txt and pinned here as an independent record.
-ARG OPENBAO_SHA256=8dc11cc5fca0b539a9e352727dacb4e2d304daffcf9a66e0718ac325a20d05aa
+ARG OPENBAO_SHA256=c6463ddd4fdc4214b62a7ffdeaa0fc6df170f7e6b75c6dea2c5e525bdc932ed3
 # Primary fingerprint of the OpenBao release signing key (openbao.org/docs/install/).
 ARG OPENBAO_GPG_FINGERPRINT=66D15FDD87287219C8E15478D200CD702853E6D0
 

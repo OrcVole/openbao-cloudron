@@ -1,3 +1,17 @@
+[1.0.3]
+
+- OpenBao 2.6.3, a security release. It fixes nine advisories published on 2026-09-23. The most serious
+  is a CRITICAL remote code execution through raft snapshot restore replacing the plugin catalog
+  (GHSA-j6wc-jpvg-xfxq); this package uses raft storage, so it applies here, although it needs a highly
+  privileged token. Also fixed: an ACL bypass via non-canonical URLs (GHSA-fg5x-7whg-6c28, HIGH), a
+  cross-namespace policy cache traversal (GHSA-mjch-vcw3-hhmf, HIGH), unvalidated SANs through PKI ACME
+  (GHSA-x8fg-h69x-p28f, HIGH), an open redirect in the OIDC provider UI (GHSA-2cjw-94fw-wqjx), and four
+  low-severity issues. Updating is recommended.
+- Upstream bug fixes include snapshot restore, recovery token generation and namespace listing in
+  recovery mode.
+- Base image cloudron/base 5.0.0 to 5.1.0: the Ubuntu 24.04.4 point release, with its OS security
+  updates. Same Ubuntu 24.04 release and glibc 2.39.
+
 [1.0.2]
 
 - OpenBao 2.6.2, a security release: internal operation types can no longer be dispatched from inline authentication or workflows to create tokens (GHSA-rh46-vc3j-w2w3), and the PKI secrets engine now enforces `allowed_ip_sans_cidr` on IP SANs taken from CSRs (GHSA-g892-p242-8g86)
