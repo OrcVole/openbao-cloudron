@@ -23,7 +23,7 @@ Cloudron's health monitor behaviour was verified against the platform source
 
 ## Decision
 
-```
+```text
 "healthCheckPath": "/v1/sys/health?standbyok=true&uninitcode=200&sealedcode=503"
 ```
 

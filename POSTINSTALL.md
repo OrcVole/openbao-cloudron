@@ -23,7 +23,7 @@ restore or clone, the app rebuilds itself from the newest snapshot
 automatically. Changes made after the last snapshot are not in the backup;
 take a manual snapshot before risky changes, in this app's Web Terminal:
 
-```
+```bash
 bao operator raft snapshot save /app/data/snapshots/raft-manual.snap
 ```
 

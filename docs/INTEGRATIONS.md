@@ -16,7 +16,7 @@ They arrive with the `default` policy only: they exist, they can log in, and
 they can read nothing — the UI shows an empty secrets engine even when
 `secret/` is full. Granting access is a deliberate operator act:
 
-```
+```bash
 # in the app's Web Terminal, authenticated as an admin
 bao policy write readers - <<'EOF'
 path "secret/data/shared/*"     { capabilities = ["read"] }
@@ -46,7 +46,7 @@ access use tokens, userpass or AppRole as below.
 
 Give each consuming application its own AppRole bound to a minimal policy:
 
-```
+```bash
 # one-time, as an admin, in the app's Web Terminal
 bao auth enable approle 2>/dev/null || true
 bao policy write myapp - <<'EOF'

@@ -28,7 +28,7 @@ the OpenBao project, the Linux Foundation, or Cloudron.
 
 From the Cloudron App Store's community section, or:
 
-```
+```bash
 cloudron install --versions-url https://raw.githubusercontent.com/OrcVole/openbao-cloudron/main/CloudronVersions.json --location bao.example.com
 ```
 
@@ -104,7 +104,7 @@ contains the configuration, the credentials, and the snapshots.
 The seal key id is derived from the key material, so rotation is a file
 operation, in the app's Web Terminal:
 
-```
+```bash
 cd /app/data/.secrets
 mv unseal.key unseal.key.prev
 openssl rand -out unseal.key 32
