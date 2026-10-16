@@ -1,3 +1,33 @@
+[1.0.4]
+
+- OpenBao 2.6.3 to 2.6.4, a security update. The 2.6.4 notes list five advisories (six fixes), all in GH-4148:
+  disclosure of `tls_acme_eab_mac_key` from `sys/config/state/sanitized` (GHSA-3237-j65r-m5rp); the
+  unauthenticated Root Token Generation and Rekey endpoints, disabled by default, returning their response
+  even when audit logging failed (GHSA-q74w-hv5x-6hxf); an AppRole Secret ID usable after expiry but before
+  tidy (GHSA-7m59-mp95-w6ph); AppRole login with form-data bodies decoded on the wrong path, and a TLS
+  connection not propagated into the cert auth role quota (both GHSA-5v22-543h-wg96); and a Kubernetes auth
+  Service Account JWT not validated on renewal (GHSA-gf3j-hm38-jhh5).
+- **Why this update is 2.6.4 and not 2.7.** OpenBao 2.7 removes LDAP, RADIUS and Kerberos auth and the
+  LDAP secrets engine from the main program; they continue as separate plugins (openbao-plugins, first
+  released 2026-10-02). Taking 2.7 now would break any install that uses one of them:
+  - an existing LDAP, RADIUS or Kerberos auth mount, or LDAP secrets mount, would not start until the
+    matching plugin is installed and registered under the same name, and that path is not yet proven;
+  - the 2.7 `bao` command-line client also dropped its LDAP login method, so `bao login -method=ldap`
+    stops working on users' own machines (upstream openbao-plugins issue #145; the workaround is
+    `bao login -method=userpass -path=<your ldap mount>`);
+  - the plugins are at their first release (v0.1.0).
+  2.6.4 carries the same security fixes, so nothing is lost by waiting. A later package release will move
+  to 2.7 with the four plugins bundled, tested by carrying a real LDAP mount across the upgrade, and will
+  say so here first.
+- Base image cloudron/base 5.1.0 to 6.0.0 (Ubuntu 26.04, glibc 2.43).
+- **Fix: restoring a backup now actually restores your secrets.** Until this release an in-place restore
+  (Restore on an existing app) brought back the backup's settings but kept the CURRENT secrets store,
+  because that store lives in a persistent directory the platform does not roll back. Every earlier
+  release has this defect; restoring to a new app (a clone) was never affected. Now a restore moves the
+  current store aside to `/app/openbao/quarantine-<time>` (kept for 30 days, so nothing is lost) and
+  rebuilds from the snapshot the backup carries. With the Shamir seal an automatic rebuild is not
+  possible: the app keeps the current store and says so in its log.
+
 [1.0.3]
 
 - OpenBao 2.6.3, a security release. It fixes nine advisories published on 2026-09-23. The most serious

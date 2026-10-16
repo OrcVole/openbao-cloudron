@@ -1,10 +1,11 @@
-FROM cloudron/base:5.1.0@sha256:1c0666c9abe9e2090d33686826d4e97769b799124573118d41e0d7485135748e
+# Tag 6.0.0 resolves to this digest (Ubuntu 26.04, glibc 2.43). The final stage must be this exact base.
+FROM docker.io/cloudron/base:6.0.0@sha256:9bed4c8fa880645f8e669041ee28febe941481d00e9445e3e5a5483cb541d09b
 
 # Upstream release, pinned in one place. The manifest mirrors it in upstreamVersion.
-ARG OPENBAO_VERSION=2.6.3
+ARG OPENBAO_VERSION=2.6.4
 # SHA-256 of openbao_${OPENBAO_VERSION}_linux_amd64.tar.gz, transcribed from the
 # release checksums.txt and pinned here as an independent record.
-ARG OPENBAO_SHA256=c6463ddd4fdc4214b62a7ffdeaa0fc6df170f7e6b75c6dea2c5e525bdc932ed3
+ARG OPENBAO_SHA256=659a4875cb197d042b2c612e7b0e275f36ebacc16e3f1f6e8dc31275f6d84220
 # Primary fingerprint of the OpenBao release signing key (openbao.org/docs/install/).
 ARG OPENBAO_GPG_FINGERPRINT=66D15FDD87287219C8E15478D200CD702853E6D0
 
@@ -48,7 +49,7 @@ RUN /app/code/bao version
 # Convenience for cloudron exec shells: the CLI finds the local server.
 RUN printf 'export BAO_ADDR=http://127.0.0.1:8200\n' > /etc/profile.d/openbao.sh
 
-COPY start.sh snapshot.sh configure-oidc.sh /app/code/
-RUN chmod 0755 /app/code/start.sh /app/code/snapshot.sh /app/code/configure-oidc.sh
+COPY start.sh snapshot.sh configure-oidc.sh restore-flag.sh /app/code/
+RUN chmod 0755 /app/code/start.sh /app/code/snapshot.sh /app/code/configure-oidc.sh /app/code/restore-flag.sh
 
 CMD [ "/app/code/start.sh" ]

@@ -189,6 +189,34 @@ exec_server() {
     exec gosu cloudron:cloudron "${CODE}/bao" server -config "${CONFIG_DIR}"
 }
 
+# --- 4b. A Cloudron restore happened (restore-flag.sh left the flag) ---
+# /app/openbao is a persistentDir, so an in-place restore leaves the live store in place, and without
+# this the restore rolled nothing back (field guide #311; Batch 7 gate 3, 2026-10-16). Move the live
+# store aside, never delete it, so the restore path below rebuilds from the snapshot the backup carries.
+readonly RESTORE_FLAG="${RAFT_ROOT}/.restore-pending"
+if [[ -f "${RESTORE_FLAG}" ]]; then
+    rm -f "${RESTORE_FLAG}"
+    if [[ ! -e "${RAFT_DIR}/raft/raft.db" && ! -e "${RAFT_DIR}/vault.db" ]]; then
+        echo "==> [start] restore: the raft store is empty (a clone); restoring from the backup's snapshot"
+    elif [[ "${SEAL_MODE}" == "shamir" ]]; then
+        echo "==> [start] RESTORE NOT APPLIED: a backup was restored, but with the Shamir seal the store"
+        echo "==> [start] cannot be rebuilt automatically. The LIVE store is still in use, not the backup's."
+        echo "==> [start] See the package README for the manual restore procedure."
+    elif ! compgen -G "${SNAP_DIR}/*.snap" > /dev/null; then
+        echo "==> [start] RESTORE NOT APPLIED: the restored backup carries no snapshot in ${SNAP_DIR}."
+        echo "==> [start] The LIVE store is still in use, not the backup's."
+    else
+        quarantine="${RAFT_ROOT}/quarantine-$(date -u +%Y%m%dT%H%M%SZ)"
+        mv "${RAFT_DIR}" "${quarantine}"
+        mkdir -p "${RAFT_DIR}"
+        chown cloudron:cloudron "${RAFT_DIR}"
+        echo "==> [start] restore: a backup was restored over this app; the live store was moved to"
+        echo "==> [start] ${quarantine} (kept 30 days) and the store is rebuilt from the backup's snapshot"
+    fi
+fi
+# Quarantined stores older than 30 days are removed.
+find "${RAFT_ROOT}" -mindepth 1 -maxdepth 1 -type d -name 'quarantine-*' -mtime +30 -exec rm -rf {} + 2>/dev/null || true
+
 # --- 5. Choose the boot path ---
 if [[ -e "${RAFT_DIR}/raft/raft.db" || -e "${RAFT_DIR}/vault.db" ]]; then
     BOOT_PATH=normal

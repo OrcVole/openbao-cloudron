@@ -3,3 +3,4 @@
 !start.sh
 !snapshot.sh
 !configure-oidc.sh
+!restore-flag.sh
