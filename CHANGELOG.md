@@ -1,3 +1,32 @@
+[1.1.0]
+
+- OpenBao 2.6.4 to 2.7.1. **Why now:** upstream support for the 2.6 line is ending. This is not a security
+  catch-up: 2.6.4 already carried the fixes of 2.7.0 and 2.7.1 (the same fifteen advisories).
+- **LDAP, RADIUS and Kerberos auth and the LDAP secrets engine are now bundled plugins.** OpenBao 2.7
+  removed these four engines from the main program. This package ships all four as the upstream
+  `openbao-plugins` v0.1.0 releases (`auth-ldap`, `auth-radius`, `auth-kerberos`, `secrets-ldap`), each
+  verified at build time against OpenBao's release signing key and a pinned checksum, installed in a
+  read-only directory and registered on every start. They are first releases (v0.1.0).
+- **Existing mounts carry over.** If your install already has an LDAP, RADIUS or Kerberos auth mount, or an
+  LDAP secrets mount, it is switched to the bundled plugin automatically on the first start after this
+  update (the log says `[plugins] ... now runs plugin v0.1.0`). Its configuration, users, group mappings,
+  policies and entity ids are untouched; the same users sign in with the same policies. The step needs the
+  stored root token (`/app/data/.secrets/root-token`); if you deleted it, the log says so, and you run
+  `bao auth tune -plugin-version=v0.1.0 <mount>/` (or `bao secrets tune ...` for the LDAP secrets engine)
+  yourself with any token allowed to tune the mount. A mount that shows in `bao auth list` but fails every
+  request after an update is this case.
+- **Command line: LDAP login.** The 2.7 `bao` client no longer has the `ldap` login method (upstream
+  openbao-plugins issue 145, open at the time of writing), so `bao login -method=ldap` fails, on the
+  `bao` in this app and on your own machine if it is 2.7. Workaround, same result:
+  `bao login -method=userpass -path=<your ldap mount>` (for example `-path=ldap`), and enter your LDAP
+  username and password. The web UI and the API (`/v1/auth/<mount>/login/<user>`) are unaffected.
+- PKI: a certificate name ending in a trailing dot (`example.com.`) is no longer accepted by the PKI engine
+  (upstream 2.7.0). The package does not enable PKI; this only matters if you did.
+- Config: the package now sets `plugin_directory` and `plugin_auto_register` in its managed config file.
+  Do not set `plugin_directory` in `main.hcl`.
+- Base image cloudron/base 6.0.0 to 6.0.1: Ubuntu security updates, including the removal of the
+  compromised eMudhra emSign ECC Root CA - G3 from the trusted certificates.
+
 [1.0.4]
 
 - OpenBao 2.6.3 to 2.6.4, a security update. The 2.6.4 notes list five advisories (six fixes), all in GH-4148:

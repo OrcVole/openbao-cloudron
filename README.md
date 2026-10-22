@@ -59,6 +59,20 @@ on the server (this is host-level configuration, outside the app's control).
 - UI: `https://your.domain/ui/`. First login: method **Token**, using
   `/app/data/.secrets/root-token`. Create a proper admin auth method
   (`userpass`, `oidc`, `ldap`) and keep the root token for emergencies.
+- **LDAP, RADIUS and Kerberos auth, and the LDAP secrets engine** were removed
+  from the OpenBao program in 2.7 and are now separate plugins. This package
+  bundles all four (`openbao-plugins` v0.1.0, signature and checksum verified
+  at build time, installed read-only under `/app/code/plugins`, registered by
+  the managed config on every start). Mounts that predate 2.7 are switched to
+  the plugin automatically on the first start after the update (see
+  `docs/decisions/0007-bundle-the-extracted-engines-as-plugins.md`). Check with
+  `bao auth list -detailed`: the Version column reads `v0.1.0`.
+- **CLI login for LDAP.** The 2.7 `bao` client dropped the `ldap` login
+  method (upstream openbao-plugins issue 145). Use
+  `bao login -method=userpass -path=<your ldap mount>` and enter the LDAP
+  username and password. The web UI (LDAP tab) and the API
+  (`/v1/auth/<mount>/login/<username>`) are unaffected.
+- PKI: names with a trailing dot (`example.com.`) are no longer accepted (OpenBao 2.7).
 - **Cloudron single sign-on**: when installed with Cloudron user management,
   Cloudron accounts can sign in from the login screen's OIDC option. They
   arrive with the `default` policy and can read nothing until you grant

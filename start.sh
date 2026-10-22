@@ -35,6 +35,7 @@ readonly MANAGED_HCL="${CONFIG_DIR}/zz-managed.hcl"
 readonly MAIN_HCL="${CONFIG_DIR}/main.hcl"
 readonly PUBLIC_ADDR="0.0.0.0:8200"
 readonly SCRATCH_ADDR="127.0.0.1:8299"
+readonly PLUGIN_DIR="${CODE}/plugins"
 
 ulimit -c 0
 
@@ -91,6 +92,32 @@ write_managed_config() { # write_managed_config <listen-addr>
         seal_block+=$'\n}'
     fi
 
+    # External plugins (the engines OpenBao 2.7 removed from the main binary). Declared here, not in
+    # main.hcl, so existing installs get them. A binary that is not on disk is left out, because a
+    # missing binary named here would abort unseal. OPENBAO_NO_PLUGINS=true omits the block (test hook).
+    local plugin_block=""
+    if [[ "${OPENBAO_NO_PLUGINS:-}" != "true" ]]; then
+        local ptype pname bin sum
+        while read -r ptype pname bin sum; do
+            [[ -f "${PLUGIN_DIR}/${bin}" ]] || continue
+            plugin_block+=$(printf 'plugin "%s" "%s" {\n  command   = "%s"\n  version   = "%s"\n  sha256sum = "%s"\n}\n' \
+                "${ptype}" "${pname}" "${bin}" "${PLUGINS_VERSION}" "${sum}")$'\n'
+        done <<PLUGINS
+auth ldap openbao-plugin-auth-ldap_linux_amd64_v1 ${PLUGIN_AUTH_LDAP_BIN_SHA256:-}
+auth radius openbao-plugin-auth-radius_linux_amd64_v1 ${PLUGIN_AUTH_RADIUS_BIN_SHA256:-}
+auth kerberos openbao-plugin-auth-kerberos_linux_amd64_v1 ${PLUGIN_AUTH_KERBEROS_BIN_SHA256:-}
+secret ldap openbao-plugin-secrets-ldap_linux_amd64_v1 ${PLUGIN_SECRETS_LDAP_BIN_SHA256:-}
+PLUGINS
+        if [[ -n "${plugin_block}" ]]; then
+            # plugin_auto_register is stated explicitly on purpose: its default (true) is lost when the
+            # server merges the files of a config directory (measured on 2.7.1, gate 3), so without
+            # this line the stanzas below are parsed and then silently never registered.
+            plugin_block="plugin_directory = \"${PLUGIN_DIR}\"
+plugin_auto_register = true
+${plugin_block}"
+        fi
+    fi
+
     cat > "${MANAGED_HCL}" <<EOF
 # Managed by the Cloudron package. Regenerated on every start; do not edit.
 # Operator settings belong in main.hcl.
@@ -101,6 +128,7 @@ ${xff_block}
 }
 api_addr = "${CLOUDRON_APP_ORIGIN:-http://127.0.0.1:8200}"
 ${seal_block}
+${plugin_block}
 EOF
     chown cloudron:cloudron "${MANAGED_HCL}"
 }
@@ -185,6 +213,8 @@ exec_server() {
     # BAO_ADDR override matters: the first-run path exports the scratch
     # listener's address, which is dead by now.
     ( sleep 2; BAO_ADDR="http://127.0.0.1:8200" /app/code/configure-oidc.sh ) &
+    # Carry mounts that predate OpenBao 2.7 (LDAP, RADIUS, Kerberos) over to the bundled plugins (ADR 0007).
+    ( BAO_ADDR="http://127.0.0.1:8200" /app/code/migrate-plugins.sh ) &
     echo "==> [start] http on ${PUBLIC_ADDR}"
     exec gosu cloudron:cloudron "${CODE}/bao" server -config "${CONFIG_DIR}"
 }

@@ -114,6 +114,15 @@ BP=$(crun cat /run/openbao-boot-path 2>/dev/null | tr -d '[:space:]')
 VAL=$(kvget "${P}-main")
 [[ "$VAL" == "expected-value-42" ]] && pass "KV read-back after restart" || fail "KV read-back after restart got '$VAL'"
 
+say "=== 2a. bundled plugins (OpenBao 2.7 removed LDAP, RADIUS, Kerberos from the main binary) ==="
+PL_AUTH=$(crun bash -c 'export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=$(cat /app/data/.secrets/root-token); bao plugin list auth; bao plugin list secret' 2>/dev/null)
+for pl in "ldap v0.1.0" "radius v0.1.0" "kerberos v0.1.0"; do
+    grep -qE "^${pl%% *} +${pl##* }\$" <<< "${PL_AUTH}" && pass "auth plugin ${pl} registered" || fail "auth plugin ${pl} not registered"
+done
+[[ "$(grep -cE '^ldap +v0.1.0$' <<< "${PL_AUTH}")" == "2" ]] && pass "secrets plugin ldap v0.1.0 registered" || fail "secrets/ldap plugin not registered"
+PL_OWN=$(crun bash -c 'stat -c "%U %a" /app/code/plugins /app/code/plugins/openbao-plugin-auth-ldap_linux_amd64_v1' | tr '\n' ' ')
+[[ "$PL_OWN" == "root 755 root 755 " ]] && pass "plugin directory and binaries are root-owned, not writable by the server user" || fail "plugin ownership '$PL_OWN'"
+
 say "=== 2b. OIDC: operator policy grants survive boot re-provisioning ==="
 # No Cloudron OIDC provider exists locally, so point the wiring script at the
 # server's own built-in identity OIDC provider (issuer forced to the local

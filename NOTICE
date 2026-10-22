@@ -1,4 +1,8 @@
-This container image redistributes an unmodified OpenBao release binary.
+This container image redistributes an unmodified OpenBao release binary and the
+unmodified openbao-plugins v0.1.0 release binaries (auth-ldap, auth-radius,
+auth-kerberos, secrets-ldap), also MPL-2.0; their licence texts are in this
+image at /app/code/plugins/LICENSE-plugin-<name>. Source:
+  https://github.com/openbao/openbao-plugins
 
 OpenBao is licensed under the Mozilla Public License, version 2.0 (MPL-2.0).
 A copy of the licence is included in this image at /app/code/LICENSE-openbao
@@ -6,7 +10,7 @@ and in this repository as LICENSE.
 
 Source code for OpenBao is available at no charge from:
   https://github.com/openbao/openbao
-This package ships the release artefact of tag v2.6.1 (see the Dockerfile for
+This package ships the release artefact of tag v2.7.1 (see the Dockerfile for
 the exact version and checksum currently built).
 
 The packaging files in this repository (Dockerfile, start.sh, snapshot.sh,

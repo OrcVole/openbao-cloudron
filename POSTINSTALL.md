@@ -56,5 +56,9 @@ use AppRole credentials, never the root token.</sso>
 - The API is Vault-compatible at `https://$CLOUDRON-APP-FQDN/v1/...`.
 - Audit log: `/app/data/audit/audit.log` (rotated automatically at 64 MB).
 - A KV v2 secrets engine is mounted at `secret/`.
+- LDAP, RADIUS, Kerberos (auth) and LDAP (secrets) are bundled plugins since OpenBao 2.7. Mounts you created
+  on an earlier release switch over by themselves on the first start. Command-line LDAP login is broken
+  upstream in the 2.7 `bao` client: use `bao login -method=userpass -path=<your ldap mount>` instead; the web
+  UI and the API are unaffected.
 - Operator configuration lives in `/app/data/config/main.hcl`; the seal and
   listener are package-managed in `zz-managed.hcl` and regenerate on restart.
