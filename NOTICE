@@ -10,7 +10,7 @@ and in this repository as LICENSE.
 
 Source code for OpenBao is available at no charge from:
   https://github.com/openbao/openbao
-This package ships the release artefact of tag v2.7.1 (see the Dockerfile for
+This package ships the release artefact of tag v2.7.2 (see the Dockerfile for
 the exact version and checksum currently built).
 
 The packaging files in this repository (Dockerfile, start.sh, snapshot.sh,

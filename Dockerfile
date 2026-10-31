@@ -2,10 +2,10 @@
 FROM docker.io/cloudron/base:6.0.1@sha256:7b1e729960c3ca312d26e886917ba89483241bba0219ff292858e10d9d5768ee
 
 # Upstream release, pinned in one place. The manifest mirrors it in upstreamVersion.
-ARG OPENBAO_VERSION=2.7.1
+ARG OPENBAO_VERSION=2.7.2
 # SHA-256 of openbao_${OPENBAO_VERSION}_linux_amd64.tar.gz, transcribed from the
 # release checksums.txt and pinned here as an independent record.
-ARG OPENBAO_SHA256=0e2f1ce10d124e03112b50dd2fbec6b78003783253bc3a91587938f39d1e2243
+ARG OPENBAO_SHA256=582b1f3c2fdc5afd443b2d57a225ef654de75adea609fdb66731fd582a9cbc96
 # Primary fingerprint of the OpenBao release signing key (openbao.org/docs/install/).
 ARG OPENBAO_GPG_FINGERPRINT=66D15FDD87287219C8E15478D200CD702853E6D0
 

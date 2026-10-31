@@ -1,3 +1,15 @@
+[1.1.1]
+
+- OpenBao 2.7.1 to 2.7.2. Security fixes, as listed in upstream's notes (all in PR #4323): path
+  canonicalization for CRL paths in the cert auth method and for Role ID paths in the AppRole engine
+  (GHSA-736f-82w7-hj22); `client_type=public` is now denied with `client_credentials=true` in the identity
+  OIDC provider (GHSA-q824-44ff-f5j5); wildcards (`*`) in SSH certificate identity templating are denied by
+  default, configurable with `allow_wildcards_in_identity_templates` (GHSA-h76r-48x5-36hg); an imported
+  transit key backup can no longer clobber arbitrary keys through path traversal (GHSA-5pmx-2p74-x478).
+  Bug fixes include namespace deletion after upgrading to 2.7.x (PR #4201), sudo-capable tokens failing on
+  their final use (PR #4158), and rate-limit-exempt paths during post-unseal (PR #4293). The bundled
+  plugins stay at openbao-plugins v0.1.0.
+
 [1.1.0]
 
 - OpenBao 2.6.4 to 2.7.1. **Why now:** upstream support for the 2.6 line is ending. This is not a security
