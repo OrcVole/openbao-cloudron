@@ -97,16 +97,16 @@ write_managed_config() { # write_managed_config <listen-addr>
     # missing binary named here would abort unseal. OPENBAO_NO_PLUGINS=true omits the block (test hook).
     local plugin_block=""
     if [[ "${OPENBAO_NO_PLUGINS:-}" != "true" ]]; then
-        local ptype pname bin sum
-        while read -r ptype pname bin sum; do
-            [[ -f "${PLUGIN_DIR}/${bin}" ]] || continue
+        local ptype pname bin ver sum
+        while read -r ptype pname bin ver sum; do
+            [[ -f "${PLUGIN_DIR}/${bin}" && -n "${ver}" ]] || continue
             plugin_block+=$(printf 'plugin "%s" "%s" {\n  command   = "%s"\n  version   = "%s"\n  sha256sum = "%s"\n}\n' \
-                "${ptype}" "${pname}" "${bin}" "${PLUGINS_VERSION}" "${sum}")$'\n'
+                "${ptype}" "${pname}" "${bin}" "${ver}" "${sum}")$'\n'
         done <<PLUGINS
-auth ldap openbao-plugin-auth-ldap_linux_amd64_v1 ${PLUGIN_AUTH_LDAP_BIN_SHA256:-}
-auth radius openbao-plugin-auth-radius_linux_amd64_v1 ${PLUGIN_AUTH_RADIUS_BIN_SHA256:-}
-auth kerberos openbao-plugin-auth-kerberos_linux_amd64_v1 ${PLUGIN_AUTH_KERBEROS_BIN_SHA256:-}
-secret ldap openbao-plugin-secrets-ldap_linux_amd64_v1 ${PLUGIN_SECRETS_LDAP_BIN_SHA256:-}
+auth ldap openbao-plugin-auth-ldap_linux_amd64_v1 ${PLUGIN_AUTH_LDAP_VERSION:-} ${PLUGIN_AUTH_LDAP_BIN_SHA256:-}
+auth radius openbao-plugin-auth-radius_linux_amd64_v1 ${PLUGIN_AUTH_RADIUS_VERSION:-} ${PLUGIN_AUTH_RADIUS_BIN_SHA256:-}
+auth kerberos openbao-plugin-auth-kerberos_linux_amd64_v1 ${PLUGIN_AUTH_KERBEROS_VERSION:-} ${PLUGIN_AUTH_KERBEROS_BIN_SHA256:-}
+secret ldap openbao-plugin-secrets-ldap_linux_amd64_v1 ${PLUGIN_SECRETS_LDAP_VERSION:-} ${PLUGIN_SECRETS_LDAP_BIN_SHA256:-}
 PLUGINS
         if [[ -n "${plugin_block}" ]]; then
             # plugin_auto_register is stated explicitly on purpose: its default (true) is lost when the

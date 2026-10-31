@@ -52,22 +52,26 @@ RUN /app/code/bao version
 # the main binary, and is also pinned by sha256 below, plus the sha256 of the unpacked
 # binary, which start.sh writes into the plugin stanzas. Plugins live in a root-owned
 # directory the server user cannot write to (the catalog refuses commands outside it).
-ARG PLUGINS_VERSION=v0.1.0
-ARG PLUGIN_AUTH_LDAP_SHA256=fc30352d88abcc26e005cae7b599c958081f2a5195d524dc14f25d6a2442300f
-ARG PLUGIN_AUTH_LDAP_BIN_SHA256=18fa83d993c629a969cfa234d48e451921004c36ac8dc6a9fcc37d9e256d8818
-ARG PLUGIN_AUTH_RADIUS_SHA256=c5a0c67b5d7d0740fdf9a6e4acdb5365c600e924d9255d038a0b24bccfe891f1
-ARG PLUGIN_AUTH_RADIUS_BIN_SHA256=771be7e9ee028d87bdc79412eb66fe330ca1e54e21a50ebe59584e6b8a5aa69b
+# One version per plugin: upstream releases them separately, and a security fix can land in one and not the others
+# (auth-ldap and auth-radius v0.2.0 carry GHSA-736f-82w7-hj22; kerberos is still v0.1.0).
+ARG PLUGIN_AUTH_LDAP_VERSION=v0.2.0
+ARG PLUGIN_AUTH_LDAP_SHA256=def2ca548b4a09f0df753ecd19dc8e670a4be4044d57a7c0208528fc340786d8
+ARG PLUGIN_AUTH_LDAP_BIN_SHA256=b323b200b2dec50199f36de7dc95a661ce6662da3d53905973c0d7700b4185bb
+ARG PLUGIN_AUTH_RADIUS_VERSION=v0.2.0
+ARG PLUGIN_AUTH_RADIUS_SHA256=8cc9ea868e0f41e891ca84b76b2b2cc2ca8f6e3315647e2a0a0f8b1853a6d46f
+ARG PLUGIN_AUTH_RADIUS_BIN_SHA256=ae2ac43287ed297a9536456b0cbb79c8749a82ffe74a54e3fe886d3285443f07
+ARG PLUGIN_AUTH_KERBEROS_VERSION=v0.1.0
 ARG PLUGIN_AUTH_KERBEROS_SHA256=1972f00dbfa9bba005beb1286c1ff8902457cd9ce3f21f10fa3acdb15be9ae11
 ARG PLUGIN_AUTH_KERBEROS_BIN_SHA256=57ac030fea755adf791600eb2b30aa410d2e848ab7ec7bb54cc515cdce4b89ae
-ARG PLUGIN_SECRETS_LDAP_SHA256=a8da1f8f1323426fcb991d04022941ce3cd20ab65e7bbcf5b76921095c2c54a8
-ARG PLUGIN_SECRETS_LDAP_BIN_SHA256=47292935509894d8b4feb0fc9b6429455da87181a8fc53999eb986128ab8d73a
+ARG PLUGIN_SECRETS_LDAP_VERSION=v0.1.1
+ARG PLUGIN_SECRETS_LDAP_SHA256=d8f5cdf5dd3b5ed72c342473335717dc705fa1c9801b9dcfe4e2cdeece7121f0
+ARG PLUGIN_SECRETS_LDAP_BIN_SHA256=4b24d4deec624d76bd8f950dfaf6f59822de14cfb9bd344e2e7c4c492cc77789
 
 # start.sh writes these into the plugin stanzas of zz-managed.hcl.
-ENV PLUGINS_VERSION=${PLUGINS_VERSION} \
-    PLUGIN_AUTH_LDAP_BIN_SHA256=${PLUGIN_AUTH_LDAP_BIN_SHA256} \
-    PLUGIN_AUTH_RADIUS_BIN_SHA256=${PLUGIN_AUTH_RADIUS_BIN_SHA256} \
-    PLUGIN_AUTH_KERBEROS_BIN_SHA256=${PLUGIN_AUTH_KERBEROS_BIN_SHA256} \
-    PLUGIN_SECRETS_LDAP_BIN_SHA256=${PLUGIN_SECRETS_LDAP_BIN_SHA256}
+ENV PLUGIN_AUTH_LDAP_VERSION=${PLUGIN_AUTH_LDAP_VERSION} PLUGIN_AUTH_LDAP_BIN_SHA256=${PLUGIN_AUTH_LDAP_BIN_SHA256} \
+    PLUGIN_AUTH_RADIUS_VERSION=${PLUGIN_AUTH_RADIUS_VERSION} PLUGIN_AUTH_RADIUS_BIN_SHA256=${PLUGIN_AUTH_RADIUS_BIN_SHA256} \
+    PLUGIN_AUTH_KERBEROS_VERSION=${PLUGIN_AUTH_KERBEROS_VERSION} PLUGIN_AUTH_KERBEROS_BIN_SHA256=${PLUGIN_AUTH_KERBEROS_BIN_SHA256} \
+    PLUGIN_SECRETS_LDAP_VERSION=${PLUGIN_SECRETS_LDAP_VERSION} PLUGIN_SECRETS_LDAP_BIN_SHA256=${PLUGIN_SECRETS_LDAP_BIN_SHA256}
 
 RUN set -eu; \
     cd /tmp; \
@@ -78,9 +82,9 @@ RUN set -eu; \
         || { echo "GPG key fingerprint mismatch"; exit 1; }; \
     install -d -m 0755 -o root -g root /app/code/plugins; \
     fetch_plugin() { \
-        name="$1"; tarsum="$2"; binsum="$3"; \
+        name="$1"; ver="$2"; tarsum="$3"; binsum="$4"; \
         file="openbao-plugin-${name}_linux_amd64_v1"; \
-        base="https://github.com/openbao/openbao-plugins/releases/download/${name}-${PLUGINS_VERSION}"; \
+        base="https://github.com/openbao/openbao-plugins/releases/download/${name}-${ver}"; \
         curl -fsSL -o "${file}.tar.gz" "${base}/${file}.tar.gz"; \
         curl -fsSL -o "${file}.tar.gz.sig" "${base}/${file}.tar.gz.sig"; \
         curl -fsSL -o "checksums-${name}.txt" "${base}/checksums-${name}.txt"; \
@@ -94,10 +98,10 @@ RUN set -eu; \
         install -m 0755 -o root -g root "x-${name}/${file}" "/app/code/plugins/${file}"; \
         install -m 0644 -o root -g root "x-${name}/LICENSE" "/app/code/plugins/LICENSE-plugin-${name}"; \
     }; \
-    fetch_plugin auth-ldap     "${PLUGIN_AUTH_LDAP_SHA256}"     "${PLUGIN_AUTH_LDAP_BIN_SHA256}"; \
-    fetch_plugin auth-radius   "${PLUGIN_AUTH_RADIUS_SHA256}"   "${PLUGIN_AUTH_RADIUS_BIN_SHA256}"; \
-    fetch_plugin auth-kerberos "${PLUGIN_AUTH_KERBEROS_SHA256}" "${PLUGIN_AUTH_KERBEROS_BIN_SHA256}"; \
-    fetch_plugin secrets-ldap  "${PLUGIN_SECRETS_LDAP_SHA256}"  "${PLUGIN_SECRETS_LDAP_BIN_SHA256}"; \
+    fetch_plugin auth-ldap "${PLUGIN_AUTH_LDAP_VERSION}" "${PLUGIN_AUTH_LDAP_SHA256}" "${PLUGIN_AUTH_LDAP_BIN_SHA256}"; \
+    fetch_plugin auth-radius "${PLUGIN_AUTH_RADIUS_VERSION}" "${PLUGIN_AUTH_RADIUS_SHA256}" "${PLUGIN_AUTH_RADIUS_BIN_SHA256}"; \
+    fetch_plugin auth-kerberos "${PLUGIN_AUTH_KERBEROS_VERSION}" "${PLUGIN_AUTH_KERBEROS_SHA256}" "${PLUGIN_AUTH_KERBEROS_BIN_SHA256}"; \
+    fetch_plugin secrets-ldap "${PLUGIN_SECRETS_LDAP_VERSION}" "${PLUGIN_SECRETS_LDAP_SHA256}" "${PLUGIN_SECRETS_LDAP_BIN_SHA256}"; \
     rm -rf /tmp/openbao-plugin-* /tmp/x-* /tmp/checksums-*.txt /tmp/openbao-gpg-pub.asc /tmp/gnupg
 
 # Build gate: every plugin binary must run on this base. Executed outside a server a

@@ -1,3 +1,15 @@
+[1.1.2]
+
+- Bundled plugins updated, one version each: **auth-ldap v0.2.0 and auth-radius v0.2.0** (path canonicalisation in their user and group
+  lookups, GHSA-736f-82w7-hj22; the OpenBao 2.7.2 core fix in 1.1.1 did not cover these plugins), **secrets-ldap v0.1.1** (dependency
+  rebuild) and auth-kerberos unchanged at v0.1.0. OpenBao itself stays at 2.7.2. If you use LDAP or RADIUS login, this is the release that
+  carries the fix for it.
+- **Existing mounts follow the bundle.** A mount of one of the four engines that runs an older plugin version is moved onto the bundled
+  version on the first start after this update, keeping its configuration, users, policies and entity ids (the log says `[plugins] ... now
+  runs plugin v0.2.0`). Until now only mounts made before OpenBao 2.7 were carried over.
+- Command line: `bao login -method=ldap` is still not available in the 2.7 `bao` client (upstream closed the report as a duplicate; pluginised
+  CLI login is tracked upstream). Use `bao login -method=userpass -path=<your ldap mount>`; the web UI login is unaffected.
+
 [1.1.1]
 
 - OpenBao 2.7.1 to 2.7.2. Security fixes, as listed in upstream's notes (all in PR #4323): path

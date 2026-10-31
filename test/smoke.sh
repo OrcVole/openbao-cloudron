@@ -116,10 +116,10 @@ VAL=$(kvget "${P}-main")
 
 say "=== 2a. bundled plugins (OpenBao 2.7 removed LDAP, RADIUS, Kerberos from the main binary) ==="
 PL_AUTH=$(crun bash -c 'export BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN=$(cat /app/data/.secrets/root-token); bao plugin list auth; bao plugin list secret' 2>/dev/null)
-for pl in "ldap v0.1.0" "radius v0.1.0" "kerberos v0.1.0"; do
+for pl in "ldap v0.2.0" "radius v0.2.0" "kerberos v0.1.0"; do
     grep -qE "^${pl%% *} +${pl##* }\$" <<< "${PL_AUTH}" && pass "auth plugin ${pl} registered" || fail "auth plugin ${pl} not registered"
 done
-[[ "$(grep -cE '^ldap +v0.1.0$' <<< "${PL_AUTH}")" == "2" ]] && pass "secrets plugin ldap v0.1.0 registered" || fail "secrets/ldap plugin not registered"
+[[ "$(grep -cE '^ldap +v0.1.1$' <<< "${PL_AUTH}")" == "1" ]] && pass "secrets plugin ldap v0.1.1 registered" || fail "secrets/ldap plugin v0.1.1 not registered"
 PL_OWN=$(crun bash -c 'stat -c "%U %a" /app/code/plugins /app/code/plugins/openbao-plugin-auth-ldap_linux_amd64_v1' | tr '\n' ' ')
 [[ "$PL_OWN" == "root 755 root 755 " ]] && pass "plugin directory and binaries are root-owned, not writable by the server user" || fail "plugin ownership '$PL_OWN'"
 

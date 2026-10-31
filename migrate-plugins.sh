@@ -1,5 +1,6 @@
 #!/bin/bash
-# One-time carry-over of mounts that predate OpenBao 2.7 (ADR 0007).
+# Carry-over of plugin mounts onto the bundled plugin versions (ADR 0007), at the first start after the engines moved out of the
+# server (2.7) and again whenever a bundled plugin version changes (1.1.2: auth-ldap and auth-radius v0.2.0, secrets-ldap v0.1.1).
 #
 # Until 2.6.x the LDAP, RADIUS and Kerberos auth engines and the LDAP secrets engine were built into
 # the server, so a mount of one of them carries no plugin version. From 2.7 they are external plugins
@@ -19,11 +20,11 @@ set -uo pipefail
 readonly SECRETS_DIR=/app/data/.secrets
 readonly ROOT_TOKEN_FILE="${SECRETS_DIR}/root-token"
 readonly BAO=/app/code/bao
-readonly VERSION="${PLUGINS_VERSION:-}"
+readonly V_LDAP="${PLUGIN_AUTH_LDAP_VERSION:-}" V_RADIUS="${PLUGIN_AUTH_RADIUS_VERSION:-}" V_KERB="${PLUGIN_AUTH_KERBEROS_VERSION:-}" V_SLDAP="${PLUGIN_SECRETS_LDAP_VERSION:-}"
 export BAO_ADDR="${BAO_ADDR:-http://127.0.0.1:8200}"
 log() { echo "==> [plugins] $*"; }
 
-[[ "${OPENBAO_NO_PLUGINS:-}" == "true" || -z "${VERSION}" ]] && exit 0
+[[ "${OPENBAO_NO_PLUGINS:-}" == "true" || -z "${V_LDAP}${V_RADIUS}${V_KERB}${V_SLDAP}" ]] && exit 0
 [[ -d /app/code/plugins ]] || exit 0
 
 # Wait for an active node (health 200). Poll for up to an hour: a sealed Shamir install waits for its operator.
@@ -40,29 +41,31 @@ if [[ ! -s "${ROOT_TOKEN_FILE}" ]]; then
 fi
 ROOT="$(cat "${ROOT_TOKEN_FILE}")"
 
-# Mounts of the four engines that report no plugin version: "<kind> <path>" per line (kind: auth|secrets).
+# Mounts of the four engines whose plugin version is NOT the bundled one (none at all for a mount made before 2.7, or an older
+# bundled version after a plugin update): "<kind> <path> <target version>" per line (kind: auth|secrets).
 need="$(
     {
         BAO_TOKEN="${ROOT}" "${BAO}" read -format=json sys/auth 2>/dev/null \
-            | jq -r '.data // {} | to_entries[] | select(.value.type=="ldap" or .value.type=="radius" or .value.type=="kerberos")
-                     | select((.value.plugin_version // "")=="") | "auth \(.key)"'
+            | jq -r --arg l "${V_LDAP}" --arg r "${V_RADIUS}" --arg k "${V_KERB}" '.data // {} | to_entries[]
+                     | (if .value.type=="ldap" then $l elif .value.type=="radius" then $r elif .value.type=="kerberos" then $k else "" end) as $t
+                     | select($t != "" and (.value.plugin_version // "") != $t) | "auth \(.key) \($t)"'
         BAO_TOKEN="${ROOT}" "${BAO}" read -format=json sys/mounts 2>/dev/null \
-            | jq -r '.data // {} | to_entries[] | select(.value.type=="ldap")
-                     | select((.value.plugin_version // "")=="") | "secrets \(.key)"'
-    } | grep -E '^(auth|secrets) [A-Za-z0-9_./-]+/$' || true
+            | jq -r --arg s "${V_SLDAP}" '.data // {} | to_entries[] | select(.value.type=="ldap")
+                     | select($s != "" and (.value.plugin_version // "") != $s) | "secrets \(.key) \($s)"'
+    } | grep -E '^(auth|secrets) [A-Za-z0-9_./-]+/ v[0-9][A-Za-z0-9._+-]*$' || true
 )"
 if [[ -z "${need}" ]]; then
     unset ROOT
     exit 0
 fi
 
-log "carrying pre-2.7 mounts over to plugin ${VERSION}:" $(echo "${need}" | tr '\n' ' ')
+log "moving plugin mounts onto the bundled plugin versions:" $(echo "${need}" | tr '\n' ' ')
 
 policy='path "sys/plugins/reload/backend" {
   capabilities = ["update"]
 }
 '
-while read -r kind mpath; do
+while read -r kind mpath _; do
     [[ -n "${kind}" ]] || continue
     # "bao auth tune" posts to sys/mounts/auth/<path>/tune; sys/auth/<path>/tune is the same operation.
     if [[ "${kind}" == "auth" ]]; then tunepaths=("sys/mounts/auth/${mpath}tune" "sys/auth/${mpath}tune"); else tunepaths=("sys/mounts/${mpath}tune"); fi
@@ -84,7 +87,7 @@ if [[ -z "${TOKEN}" ]]; then
     unset ROOT; exit 0
 fi
 
-while read -r kind mpath; do
+while read -r kind mpath VERSION; do
     [[ -n "${kind}" ]] || continue
     if BAO_TOKEN="${TOKEN}" "${BAO}" "${kind}" tune "-plugin-version=${VERSION}" "${mpath}" > /dev/null 2>&1; then
         reloadpath="${mpath}"; [[ "${kind}" == "auth" ]] && reloadpath="auth/${mpath}"

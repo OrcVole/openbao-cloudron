@@ -1,6 +1,6 @@
 This container image redistributes an unmodified OpenBao release binary and the
-unmodified openbao-plugins v0.1.0 release binaries (auth-ldap, auth-radius,
-auth-kerberos, secrets-ldap), also MPL-2.0; their licence texts are in this
+unmodified openbao-plugins release binaries (auth-ldap v0.2.0, auth-radius v0.2.0,
+auth-kerberos v0.1.0, secrets-ldap v0.1.1), also MPL-2.0; their licence texts are in this
 image at /app/code/plugins/LICENSE-plugin-<name>. Source:
   https://github.com/openbao/openbao-plugins
 

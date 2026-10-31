@@ -65,3 +65,16 @@ leaves plugin upgrades outside the declarative path).
   documented workaround `bao login -method=userpass -path=<ldap mount>`.
 - When a new plugin version is bundled, bump the stanza version; new mounts pick the newest registered
   version, existing tuned mounts keep theirs until tuned.
+
+## Addendum, 2026-10-31: one version per plugin, and mounts follow the bundle
+
+The four plugins are released separately and one release can carry a security fix the others do not: on 2026-10-26 auth-ldap and
+auth-radius v0.2.0 fixed path canonicalisation in their user and group lookups (the plugin-side twin of the core fix in 2.7.2), while
+auth-kerberos stayed at v0.1.0 and secrets-ldap moved to v0.1.1 (dependency rebuild). The Dockerfile therefore pins a version, a
+tarball checksum and a binary checksum per plugin, and `start.sh` registers each at its own version.
+
+A mount stays pinned to the plugin version it was registered with, so shipping only the newer binary would leave an existing mount
+listed but failing every request. `migrate-plugins.sh` therefore moves every auth-ldap, auth-radius, auth-kerberos and secrets-ldap mount
+whose version is not the bundled one (no version at all for a mount made before 2.7, or an older bundled version after this update) onto
+the bundled version, with the same short-lived tune-only token as before. A restore of a backup taken on the newer plugins onto an
+older package version is not supported: the older image does not carry the newer binaries.

@@ -61,12 +61,12 @@ on the server (this is host-level configuration, outside the app's control).
   (`userpass`, `oidc`, `ldap`) and keep the root token for emergencies.
 - **LDAP, RADIUS and Kerberos auth, and the LDAP secrets engine** were removed
   from the OpenBao program in 2.7 and are now separate plugins. This package
-  bundles all four (`openbao-plugins` v0.1.0, signature and checksum verified
+  bundles all four (`openbao-plugins`: auth-ldap v0.2.0, auth-radius v0.2.0, auth-kerberos v0.1.0, secrets-ldap v0.1.1, each signature and checksum verified
   at build time, installed read-only under `/app/code/plugins`, registered by
   the managed config on every start). Mounts that predate 2.7 are switched to
-  the plugin automatically on the first start after the update (see
+  the plugin automatically on the first start after the update, and mounts of an older bundled plugin version are moved to the current one the same way (see
   `docs/decisions/0007-bundle-the-extracted-engines-as-plugins.md`). Check with
-  `bao auth list -detailed`: the Version column reads `v0.1.0`.
+  `bao auth list -detailed`: the Version column shows each plugin's version.
 - **CLI login for LDAP.** The 2.7 `bao` client dropped the `ldap` login
   method (upstream openbao-plugins issue 145). Use
   `bao login -method=userpass -path=<your ldap mount>` and enter the LDAP
